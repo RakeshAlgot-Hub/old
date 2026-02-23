@@ -11,6 +11,7 @@ import {
   Lock,
   ChevronRight
 } from 'lucide-react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface SettingItem {
   label: string;
@@ -33,7 +34,9 @@ export default function SettingsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background.default }]}>
+      <SafeAreaView edges={["top"]}>
       <Header title="Settings" showBack />
+      </SafeAreaView>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[styles.content, { padding: spacing.base }]}

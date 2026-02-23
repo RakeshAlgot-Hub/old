@@ -5,6 +5,7 @@ import { useAuthStore } from '@/store/auth';
 import { useRouter } from 'expo-router';
 import { Header } from '@/components/Header';
 import { useTheme } from '@/contexts/ThemeContext';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function AccountScreen() {
   const { user, logout, isLoading, error, clearError } = useAuthStore();
@@ -27,7 +28,9 @@ export default function AccountScreen() {
   if (!user) {
     return (
       <View style={[styles.page, { backgroundColor: colors.background.default }]}> 
+      <SafeAreaView edges={["top"]}>
         <Header title="Account" showBack />
+      </SafeAreaView>
         {renderPassiveError()}
         <View style={styles.content}>
           <Text style={[styles.emptyStateText, { color: colors.text.secondary, fontSize: fonts.size.md, fontWeight: fonts.weight.medium }]}> 
@@ -48,7 +51,9 @@ export default function AccountScreen() {
 
   return (
     <View style={[styles.page, { backgroundColor: colors.background.default }]}> 
+    <SafeAreaView edges={["top"]}>
       <Header title="Account" showBack />
+    </SafeAreaView>
       {renderPassiveError()}
       <ScrollView
         style={styles.scrollView}

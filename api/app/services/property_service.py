@@ -5,13 +5,25 @@ import uuid
 from datetime import timezone
 properties_collection = db["properties"]
 
+def serialize_property(prop):
+    # Convert createdAt and updatedAt to ISO strings
+    if isinstance(prop.get("createdAt"), datetime):
+        prop["createdAt"] = prop["createdAt"].isoformat()
+    if isinstance(prop.get("updatedAt"), datetime):
+        prop["updatedAt"] = prop["updatedAt"].isoformat()
+    # Add id to each floor
+    for floor in prop.get("floors", []):
+        if "id" not in floor:
+            floor["id"] = str(uuid.uuid4())
+    return prop
+
 async def get_all_properties(owner_id=None):
     properties = []
     query = {"ownerId": owner_id} if owner_id else {}
     async for prop in properties_collection.find(query):
         prop["id"] = str(prop["_id"])
         prop.pop("_id", None)
-        properties.append(prop)
+        properties.append(serialize_property(prop))
     return properties
 
 async def create_property_service(property: dict):
@@ -26,8 +38,8 @@ async def create_property_service(property: dict):
     if count >= property_limit:
         raise Exception(f"Maximum {property_limit} properties allowed per user.")
    
-    property["createdAt"] = datetime.now(timezone.utc)
-    property["updatedAt"] = datetime.now(timezone.utc)
+    property["createdAt"] = datetime.now(timezone.utc).isoformat()
+    property["updatedAt"] = datetime.now(timezone.utc).isoformat()
     # Set default room limit automatically
     if "roomLimit" not in property:
         property["roomLimit"] = 90
@@ -36,7 +48,7 @@ async def create_property_service(property: dict):
         {"id": str(uuid.uuid4()), "name": b["name"] if isinstance(b, dict) and "name" in b else str(b)}
         for b in property.get("buildings", [])
     ]
-    # Ensure floors are objects with label and name
+    # Ensure floors are objects with id and name
     default_floors = [
         {"label": "G", "name": "Ground"},
         {"label": "1", "name": "First"},

@@ -8,11 +8,12 @@ from fastapi import HTTPException, status
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 from app.models.user_schema import UserCreate, UserLogin, UserOut, AuthResponse
+from app.database.mongodb import AsyncIOMotorClient
 
 users_collection = db["users"]
 
-def register_user_service(user: UserCreate):
-    existing = users_collection.find_one({"email": user.email})
+async def register_user_service(user: UserCreate):
+    existing = await users_collection.find_one({"email": user.email})
     if existing:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
     hashed_pw = hash_password(user.password)
@@ -32,7 +33,7 @@ def register_user_service(user: UserCreate):
         "osVersion": None,
         "appVersion": None,
     }
-    result = users_collection.insert_one(user_doc)
+    result = await users_collection.insert_one(user_doc)
     user_id = str(result.inserted_id)
     access_token = create_access_token({"sub": user_id})
     refresh_token = create_refresh_token({"sub": user_id})
@@ -40,13 +41,13 @@ def register_user_service(user: UserCreate):
     response = AuthResponse(accessToken=access_token, refreshToken=refresh_token, user=user_out)
     return JSONResponse(status_code=status.HTTP_201_CREATED, content=response.dict())
 
-def login_user_service(data: UserLogin):
-    user = users_collection.find_one({"email": data.email})
+async def login_user_service(data: UserLogin):
+    user = await users_collection.find_one({"email": data.email})
     if not user or not verify_password(data.password, user["password"]):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
     if user.get("isDeleted"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is deleted")
-    users_collection.update_one({"_id": user["_id"]}, {"$set": {"lastLogin": datetime.now(timezone.utc)}})
+    await users_collection.update_one({"_id": user["_id"]}, {"$set": {"lastLogin": datetime.now(timezone.utc)}})
     token = create_access_token({"sub": str(user["_id"])})
     refresh_token = create_refresh_token({"sub": str(user["_id"])})
     user_out = UserOut(id=str(user["_id"]), name=user["name"], email=user["email"])

@@ -2,6 +2,7 @@ from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 from datetime import datetime,timezone
 
+
 class UserInDB(BaseModel):
     id: Optional[str] = None
     name: str
@@ -38,3 +39,16 @@ class AuthResponse(BaseModel):
     accessToken: str
     refreshToken: str
     user: UserOut
+
+class RefreshTokenRequest(BaseModel):
+    refreshToken: str
+
+class RefreshTokenResponse(BaseModel):
+    accessToken: str
+    user: UserOut
+
+class LogoutRequest(BaseModel):
+    refreshToken: str
+
+class LogoutResponse(BaseModel):
+    success: bool

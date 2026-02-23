@@ -1,6 +1,6 @@
 import { View } from 'react-native';
 import { Tabs } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   LayoutDashboard,
   Users,
@@ -13,7 +13,9 @@ export default function TabLayout() {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#fff' }}>
-      <AppHeader title="TenantTracker" />
+      <SafeAreaView edges={["top"]}>
+        <AppHeader title="TenantTracker" />
+      </SafeAreaView>
       <Tabs
         screenOptions={{
           headerShown: false,

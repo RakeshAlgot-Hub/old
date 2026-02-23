@@ -25,6 +25,15 @@ export interface AuthResponse {
   user: User;
 }
 
+export interface RefreshTokenResponse {
+  accessToken: string;
+  user: User;
+}
+
+export interface LogoutResponse {
+  success: boolean;
+}
+
 export const userService = {
   async register(data: RegisterRequest): Promise<AuthResponse> {
     try {
@@ -58,15 +67,16 @@ export const userService = {
     }
   },
 
-  async logout(): Promise<void> {
+  async logout(): Promise<LogoutResponse> {
     try {
       const api = getApi();
       const refreshToken = await AsyncStorage.getItem('@tenant_tracker_refresh_token');
-      await api.post('/auth/logout', { refreshToken });
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
+      const response = await api.post<LogoutResponse>('/auth/logout', { refreshToken });
       await clearTokens();
+      return response.data;
+    } catch (error) {
+      await clearTokens();
+      throw handleApiError(error);
     }
   },
 
@@ -80,11 +90,11 @@ export const userService = {
     }
   },
 
-  async refreshToken(): Promise<AuthResponse> {
+  async refreshToken(refreshToken: string): Promise<RefreshTokenResponse> {
     try {
       const api = getApi();
-      const response = await api.post<AuthResponse>('/auth/refresh');
-      const { accessToken, refreshToken } = response.data;
+      const response = await api.post<RefreshTokenResponse>('/auth/refresh', { refreshToken });
+      const { accessToken } = response.data;
       await setTokens(accessToken, refreshToken);
       return response.data;
     } catch (error) {

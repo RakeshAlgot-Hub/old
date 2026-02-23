@@ -15,6 +15,7 @@ import { usePropertyStore } from '@/store/property';
 import { Building, Home, ChevronDown, Plus, Edit2, Trash2 } from 'lucide-react-native';
 import { Header } from '@/components/Header';
 import { useTheme } from '@/contexts/ThemeContext';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function PropertiesScreen() {
   const router = useRouter();
@@ -74,7 +75,9 @@ export default function PropertiesScreen() {
   if (!isInitialized) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background.default }]}> 
-        <Header title="Properties" showBack />
+        <SafeAreaView edges={["top"]}>
+          <Header title="Properties" showBack />
+        </SafeAreaView>
         {renderPassiveError()}
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
@@ -86,7 +89,9 @@ export default function PropertiesScreen() {
   if (properties.length === 0) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background.default }]}> 
-        <Header title="Properties" showBack />
+        <SafeAreaView edges={["top"]}>
+          <Header title="Properties" showBack />
+        </SafeAreaView>
         {renderPassiveError()}
         <View style={styles.emptyContainer}>
           <View style={styles.emptyContent}>
@@ -115,7 +120,9 @@ export default function PropertiesScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background.default }]}> 
-      <Header title="Properties" showBack />
+      <SafeAreaView edges={["top"]}>
+        <Header title="Properties" showBack />
+      </SafeAreaView>
       {renderPassiveError()}
       <ScrollView style={styles.scrollView} contentContainerStyle={[styles.content, { padding: spacing.base, gap: spacing.base }]}> 
         <TouchableOpacity
@@ -176,8 +183,8 @@ export default function PropertiesScreen() {
               </View>
               <View style={styles.summaryRow}>
                 <Text style={[styles.summaryLabel, { fontSize: fonts.size.base, color: colors.text.secondary }]}>Buildings:</Text>
-                <Text style={[styles.summaryValue, { fontSize: fonts.size.base, fontWeight: fonts.weight.semiBold, color: colors.text.primary }]}>
-                  {selectedProperty.buildings.length}
+                <Text style={[styles.summaryValue, { fontSize: fonts.size.base, fontWeight: fonts.weight.semiBold, color: colors.text.primary }]}> 
+                  {selectedProperty.buildings?.length ?? 0}
                 </Text>
               </View>
             </View>

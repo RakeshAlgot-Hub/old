@@ -25,7 +25,7 @@ export function AppHeader({ title = 'TenantTracker', showBack, onBack, showMenu 
   ];
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.primary, paddingTop: insets.top }]}>
+    <View style={[styles.container, { backgroundColor: colors.primary }]}>
       <View style={styles.content}>
         <View style={styles.leftSection}>
           {showBack && (
