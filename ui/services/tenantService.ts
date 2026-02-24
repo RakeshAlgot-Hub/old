@@ -9,8 +9,12 @@ export interface CreateTenantRequest {
   phoneNumber: string;
   checkInDate: string;
   depositAmount: string;
-  status: string;
+  rentType: 'monthly' | 'daywise';
+  nextDueDate: string;
+  status?: 'stay' | 'vacate';
   address?: string;
+  profilePictureUrl?: string;
+  paymentStatus?: 'paid' | 'due';
 }
 
 export interface TenantResponse {
@@ -22,7 +26,9 @@ export interface TenantResponse {
   phoneNumber: string;
   checkInDate: string;
   depositAmount: string;
-  status: string;
+  rentType: 'monthly' | 'daywise';
+  nextDueDate: string;
+  status: 'stay' | 'vacate';
   profilePictureUrl?: string;
   address?: string;
 }

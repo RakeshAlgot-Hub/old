@@ -3,13 +3,14 @@ import { getApi, handleApiError } from '@/lib/api';
 export interface PaymentData {
   id: string;
   tenantId: string;
-  tenantName: string;
+  tenantName?: string;
   unitId: string;
-  unitName: string;
+  unitName?: string;
   amount: number;
   dueDate: string;
   status: 'paid' | 'due';
   paidDate?: string;
+  description?: string;
 }
 
 export interface PaginatedPaymentResponse {
@@ -70,6 +71,7 @@ function joinTenantUnitPayments(tenants: any[], units: any[]): PaymentData[] {
       dueDateStr = dueDate.toISOString().split('T')[0];
     }
 
+    const status = dueDateStr ? getPaymentStatus(dueDateStr) : 'due';
     return {
       id: tenant.id,
       tenantId: tenant.id,
@@ -78,8 +80,8 @@ function joinTenantUnitPayments(tenants: any[], units: any[]): PaymentData[] {
       unitName: unit?.name || 'N/A',
       amount,
       dueDate: dueDateStr,
-      status: dueDateStr ? getPaymentStatus(dueDateStr) : 'due',
-      paidDate: undefined,
+      status,
+      paidDate: status === 'paid' ? tenant.checkInDate : undefined,
     };
   });
 }
@@ -123,6 +125,7 @@ export const paymentService = {
           status: params?.status
         }
       });
+      console.log('[DEBUG] Full payments response:', response.data);
       return response.data;
     } catch (error) {
       throw handleApiError(error);

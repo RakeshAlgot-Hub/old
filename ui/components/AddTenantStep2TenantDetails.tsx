@@ -26,11 +26,20 @@ export interface TenantForm {
   profilePictureFile?: any;
   checkInDate: string;
   depositAmount: string;
+  rentType: 'monthly' | 'daywise';
+  nextDueDate: string;
+  status?: 'stay' | 'vacate';
+}
+
+export interface PaymentStatusForm {
+  paymentStatus: 'paid' | 'due';
 }
 
 interface Step2Props {
   tenant: TenantForm;
   setTenant: (t: TenantForm) => void;
+  paymentStatus: 'paid' | 'due';
+  setPaymentStatus: (status: 'paid' | 'due') => void;
   onNext: () => void;
   onBack: () => void;
   selectedUnit: UnitResponse | null;
@@ -43,6 +52,8 @@ interface Step2Props {
 export function Step2TenantDetails({
   tenant,
   setTenant,
+  paymentStatus,
+  setPaymentStatus,
   onNext,
   onBack,
   selectedUnit,
@@ -61,7 +72,73 @@ export function Step2TenantDetails({
     'documentId',
     'checkInDate',
     'depositAmount',
+    'rentType',
+    'nextDueDate',
+    // 'status',
   ];
+  // Calculate nextDueDate when checkInDate or rentType changes
+  React.useEffect(() => {
+    if (!tenant.checkInDate) return;
+    if (paymentStatus === 'due') {
+      // If due, nextDueDate defaults to checkInDate (editable)
+      if (tenant.nextDueDate !== tenant.checkInDate) {
+        setTenant({ ...tenant, nextDueDate: tenant.checkInDate });
+      }
+    } else {
+      // If paid, nextDueDate is calculated as per rentType
+      if (!tenant.rentType) return;
+      let nextDue = '';
+      const checkIn = new Date(tenant.checkInDate);
+      if (tenant.rentType === 'monthly') {
+        const d = new Date(checkIn);
+        d.setMonth(d.getMonth() + 1);
+        nextDue = d.toISOString().split('T')[0];
+      } else if (tenant.rentType === 'daywise') {
+        const d = new Date(checkIn);
+        d.setDate(d.getDate() + 1);
+        nextDue = d.toISOString().split('T')[0];
+      }
+      if (tenant.nextDueDate !== nextDue) {
+        setTenant({ ...tenant, nextDueDate: nextDue });
+      }
+    }
+  }, [tenant.checkInDate, tenant.rentType, paymentStatus]);
+            {/* Payment Status Selection */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Payment Status *</Text>
+              <View style={{ flexDirection: 'row', gap: 16 }}>
+                {['paid', 'due'].map((opt) => (
+                  <TouchableOpacity
+                    key={opt}
+                    style={{
+                      paddingVertical: 8,
+                      paddingHorizontal: 16,
+                      borderRadius: 8,
+                      borderWidth: 1,
+                      borderColor: paymentStatus === opt ? Colors.primary : Colors.border.medium,
+                      backgroundColor: paymentStatus === opt ? Colors.primary : Colors.background.paper,
+                      marginRight: 8,
+                    }}
+                    onPress={() => setPaymentStatus(opt as 'paid' | 'due')}
+                    disabled={loading}
+                  >
+                    <Text style={{ color: paymentStatus === opt ? Colors.background.paper : Colors.text.primary }}>
+                      {opt === 'paid' ? 'Paid' : 'Due'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+  // Rent Type selection
+  const rentTypeOptions: Array<{ label: string; value: 'monthly' | 'daywise' }> = [
+    { label: 'Monthly', value: 'monthly' },
+    { label: 'Daywise', value: 'daywise' },
+  ];
+
+  // Status selection removed for creation
+// ...existing code...
+// Insert these inside the <View style={styles.form}> ... </View> block, after deposit amount input
+// ...existing code...
 
   const isValid = requiredFields.every((f) => tenant[f]);
 
@@ -325,6 +402,101 @@ export function Step2TenantDetails({
               <Text style={styles.errorText}>Deposit amount is required</Text>
             )}
           </View>
+
+
+          {/* Rent Type Selection */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Rent Type *</Text>
+            <View style={{ flexDirection: 'row', gap: 16 }}>
+              {rentTypeOptions.map((opt) => (
+                <TouchableOpacity
+                  key={opt.value}
+                  style={{
+                    paddingVertical: 8,
+                    paddingHorizontal: 16,
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: tenant.rentType === opt.value ? Colors.primary : Colors.border.medium,
+                    backgroundColor: tenant.rentType === opt.value ? Colors.primary : Colors.background.paper,
+                    marginRight: 8,
+                  }}
+                  onPress={() => handleChange('rentType', opt.value)}
+                  disabled={loading}
+                >
+                  <Text style={{ color: tenant.rentType === opt.value ? Colors.background.paper : Colors.text.primary }}>
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {!tenant.rentType && touched.rentType && (
+              <Text style={styles.errorText}>Rent type is required</Text>
+            )}
+          </View>
+
+          {/* Payment Status Selection */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Payment Status *</Text>
+            <View style={{ flexDirection: 'row', gap: 16 }}>
+              {['paid', 'due'].map((opt) => (
+                <TouchableOpacity
+                  key={opt}
+                  style={{
+                    paddingVertical: 8,
+                    paddingHorizontal: 16,
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: paymentStatus === opt ? Colors.primary : Colors.border.medium,
+                    backgroundColor: paymentStatus === opt ? Colors.primary : Colors.background.paper,
+                    marginRight: 8,
+                  }}
+                  onPress={() => setPaymentStatus(opt as 'paid' | 'due')}
+                  disabled={loading}
+                >
+                  <Text style={{ color: paymentStatus === opt ? Colors.background.paper : Colors.text.primary }}>
+                    {opt === 'paid' ? 'Paid' : 'Due'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Next Due Date Picker */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Next Due Date *</Text>
+            <TouchableOpacity
+              style={[
+                styles.input,
+                !tenant.nextDueDate && touched.nextDueDate && styles.inputError,
+                { justifyContent: 'center' },
+              ]}
+              onPress={() => setShowDatePicker(true)}
+              disabled={loading}
+            >
+              <Text style={{ color: tenant.nextDueDate ? Colors.text.primary : Colors.text.hint }}>
+                {tenant.nextDueDate || 'Select date'}
+              </Text>
+            </TouchableOpacity>
+            {showDatePicker && (
+              <DateTimePicker
+                value={tenant.nextDueDate ? new Date(tenant.nextDueDate) : new Date()}
+                mode="date"
+                display="default"
+                onChange={(
+                  event: DateTimePickerEvent,
+                  date?: Date | undefined
+                ) => {
+                  setShowDatePicker(false);
+                  if (date) handleChange('nextDueDate', date.toISOString().split('T')[0]);
+                }}
+              />
+            )}
+            {!tenant.nextDueDate && touched.nextDueDate && (
+              <Text style={styles.errorText}>Next due date is required</Text>
+            )}
+          </View>
+
+
         </View>
       </ScrollView>
 

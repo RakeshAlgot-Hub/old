@@ -28,8 +28,12 @@ export function AddTenantModal({ visible, onClose, propertyId, onSuccess }: AddT
     documentId: '',
     profilePictureUrl: '',
     checkInDate: '',
-    depositAmount: ''
+    depositAmount: '',
+    rentType: 'monthly',
+    nextDueDate: '',
+    status: 'stay',
   });
+  const [paymentStatus, setPaymentStatus] = useState<'paid' | 'due'>('paid');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,9 +48,13 @@ export function AddTenantModal({ visible, onClose, propertyId, onSuccess }: AddT
         documentId: '',
         profilePictureUrl: '',
         checkInDate: '',
-        depositAmount: ''
+        depositAmount: '',
+        rentType: 'monthly',
+        nextDueDate: '',
+        status: 'stay',
       });
       setLoading(true);
+      setPaymentStatus('paid');
       unitService.getUnits(propertyId, { status: 'available' })
         .then(response => setAvailableUnits(response.data))
         .catch(() => setError('Failed to load beds'))
@@ -65,11 +73,6 @@ export function AddTenantModal({ visible, onClose, propertyId, onSuccess }: AddT
     if (!selectedUnit) return;
     setLoading(true);
     try {
-      // Calculate dueDate (1 month after checkInDate)
-      const checkInDate = new Date(tenant.checkInDate);
-      const dueDate = new Date(checkInDate);
-      dueDate.setMonth(checkInDate.getMonth() + 1);
-      const dueDateStr = dueDate.toISOString().split('T')[0];
       // 1. Create tenant in backend
       const tenantRes = await tenantService.createTenant({
         propertyId,
@@ -79,21 +82,14 @@ export function AddTenantModal({ visible, onClose, propertyId, onSuccess }: AddT
         phoneNumber: tenant.phoneNumber,
         checkInDate: tenant.checkInDate,
         depositAmount: tenant.depositAmount,
-        status: 'paid',
+        rentType: tenant.rentType,
+        nextDueDate: tenant.nextDueDate,
         address: tenant.address,
+        paymentStatus,
       });
       if (!tenantRes || !tenantRes.id) {
         throw new Error('Tenant creation failed');
       }
-      await paymentService.createPayment({
-        propertyId,
-        tenantId: tenantRes.id,
-        unitId: selectedUnit.id,
-        amount: parseFloat(tenant.depositAmount || '0'),
-        dueDate: dueDateStr,
-        status: 'paid',
-      });
-
       setLoading(false);
       onSuccess();
       onClose();
@@ -125,6 +121,8 @@ export function AddTenantModal({ visible, onClose, propertyId, onSuccess }: AddT
           <Step2TenantDetails
             tenant={tenant}
             setTenant={setTenant}
+            paymentStatus={paymentStatus}
+            setPaymentStatus={setPaymentStatus}
             onNext={handleNext}
             onBack={handleBack}
             selectedUnit={selectedUnit}

@@ -2,6 +2,8 @@ from typing import List
 from pydantic import BaseModel, Field
 from typing import Optional
 
+from pydantic import validator
+
 class TenantResponse(BaseModel):
     id: str
     propertyId: str
@@ -11,7 +13,9 @@ class TenantResponse(BaseModel):
     phoneNumber: str
     checkInDate: str
     depositAmount: str
-    # status field removed
+    rentType: str
+    nextDueDate: str
+    status: str
     createdAt: str
     updatedAt: str
     profilePictureUrl: Optional[str] = None
@@ -31,9 +35,14 @@ class TenantRequest(BaseModel):
     phoneNumber: str
     checkInDate: str
     depositAmount: str
-    # status field removed
+    rentType: str = Field(..., description="Type of rent: monthly or daywise")
+    nextDueDate: str
+    status: str = Field("stay", description="Tenant status: stay or vacate")
     profilePictureUrl: Optional[str] = None
     address: Optional[str] = None
+    paymentStatus: Optional[str] = Field(None, description="Initial payment status: paid or due")
+
+
 
 class TenantUpdate(BaseModel):
     propertyId: Optional[str] = None
@@ -43,6 +52,9 @@ class TenantUpdate(BaseModel):
     phoneNumber: Optional[str] = None
     checkInDate: Optional[str] = None
     depositAmount: Optional[str] = None
-    # status field removed
+    rentType: Optional[str] = None
+    nextDueDate: Optional[str] = None
+    status: Optional[str] = None
     profilePictureUrl: Optional[str] = None
     address: Optional[str] = None
+

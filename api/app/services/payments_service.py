@@ -46,29 +46,37 @@ async def get_payments_service(propertyId: str, page: int = 1, limit: int = 20, 
         payment["id"] = str(payment["_id"])
         payment.pop("_id", None)
 
-
         # Fetch tenant name
         tenant_name = None
         if payment.get("tenantId"):
-            tenant = await tenants_collection.find_one({"_id": ObjectId(payment["tenantId"])})
-            if tenant:
-                tenant_name = tenant.get("fullName")
-        payment["tenantName"] = tenant_name
+            try:
+                tenant = await tenants_collection.find_one({"_id": ObjectId(payment["tenantId"])} )
+                if tenant:
+                    tenant_name = tenant.get("fullName")
+            except Exception:
+                tenant_name = None
+        payment["tenantName"] = tenant_name if tenant_name else "Unknown Tenant"
 
         # Fetch room number as unitName
         unit_name = None
         if payment.get("unitId"):
-            unit = await units_collection.find_one({"_id": ObjectId(payment["unitId"])})
-            if unit and unit.get("roomId"):
-                room = await rooms_collection.find_one({"_id": ObjectId(unit["roomId"])})
-                if room:
-                    unit_name = room.get("roomNumber")
-        payment["unitName"] = unit_name
+            try:
+                unit = await units_collection.find_one({"_id": ObjectId(payment["unitId"])} )
+                if unit and unit.get("roomId"):
+                    room = await rooms_collection.find_one({"_id": ObjectId(unit["roomId"])} )
+                    if room:
+                        unit_name = room.get("roomNumber")
+            except Exception:
+                unit_name = None
+        payment["unitName"] = unit_name if unit_name else "Unknown Unit"
 
         payments.append(payment)
-    return {
+    totalPages = (total + limit - 1) // limit if limit else 1
+    response = {
         "total": total,
         "page": page,
         "limit": limit,
+        "totalPages": totalPages,
         "data": payments
     }
+    return response

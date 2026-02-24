@@ -40,7 +40,7 @@ export default function PaymentCard({ payment, status, onStatusChanged }: Paymen
       year: 'numeric',
     });
   };
-
+  console.log('[DEBUG] Rendering PaymentCard with payment:', payment, 'and status:', status);
   // Fallbacks for missing data
   const tenantName = payment.tenantName || 'Unknown Tenant';
   const unitNumber = payment.unitName !== undefined && payment.unitName !== null ? `Unit ${payment.unitName}` : (payment.unitName || 'Unknown Unit');

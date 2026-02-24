@@ -20,10 +20,13 @@ function mapTenantResponseToForm(t: TenantResponse): TenantForm {
     fullName: t.fullName || '',
     phoneNumber: t.phoneNumber || '',
     address: (t as any).address || '',
-    documentUrl: (t as any).documentUrl || t.documentId || '',
+    documentId: t.documentId || '',
     profilePictureUrl: (t as any).profilePictureUrl || '',
     checkInDate: t.checkInDate || '',
     depositAmount: t.depositAmount || '',
+    rentType: (t as any).rentType || 'monthly',
+    nextDueDate: (t as any).nextDueDate || '',
+    status: (t as any).status || 'stay',
   };
 }
 
@@ -119,6 +122,8 @@ export function EditTenantModal({
           <Step2TenantDetails
             tenant={tenant}
             setTenant={setTenant}
+            paymentStatus={"paid"}
+            setPaymentStatus={() => {}}
             onNext={handleSave}
             onBack={handleOpenBedSelect}
             selectedUnit={selectedUnit}

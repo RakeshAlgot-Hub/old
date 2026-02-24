@@ -83,17 +83,32 @@ export function Step3ReviewConfirm({
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Tenant Information</Text>
           <View style={styles.card}>
-            {Object.entries(tenant).map(([key, value], index) => (
-              <View
-                key={key}
-                style={[
-                  styles.detailRow,
-                  index < Object.entries(tenant).length - 1 && styles.detailRowBorder,
-                ]}>
-                <Text style={styles.detailLabel}>{formatLabel(key)}</Text>
-                <Text style={styles.detailValue}>{value || '-'}</Text>
-              </View>
-            ))}
+            {Object.entries(tenant).map(([key, value], index) => {
+              // Only show relevant fields (status removed)
+              if ([
+                'fullName',
+                'phoneNumber',
+                'address',
+                'documentId',
+                'checkInDate',
+                'depositAmount',
+                'rentType',
+                'nextDueDate',
+              ].includes(key)) {
+                return (
+                  <View
+                    key={key}
+                    style={[
+                      styles.detailRow,
+                      index < Object.entries(tenant).length - 1 && styles.detailRowBorder,
+                    ]}>
+                    <Text style={styles.detailLabel}>{formatLabel(key)}</Text>
+                    <Text style={styles.detailValue}>{value || '-'}</Text>
+                  </View>
+                );
+              }
+              return null;
+            })}
           </View>
         </View>
 

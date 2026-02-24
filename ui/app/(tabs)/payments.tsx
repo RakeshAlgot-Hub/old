@@ -70,8 +70,10 @@ export default function PaymentsScreen() {
 
       if (pageNum === 1) {
         setPayments(Array.isArray(data.data) ? data.data : []);
+        console.log('[DEBUG] Payments loaded:', data.data);
       } else {
         setPayments(prev => Array.isArray(data.data) ? [...prev, ...data.data] : prev);
+        console.log('[DEBUG] Payments appended:', data.data);
       }
 
       setHasMore(pageNum < (data.totalPages || 1));

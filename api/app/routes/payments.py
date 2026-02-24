@@ -4,22 +4,29 @@ from fastapi import APIRouter, status, HTTPException, Depends
 from app.utils.helpers import get_current_user
 from typing import Optional
 from fastapi import Query
+from typing import List
 from app.services.payments_service import create_payment_service, get_payments_service
+from app.models.payment_schema import PaymentRequest, PaymentResponse, PaginatedPaymentResponse
 
 router = APIRouter()
 
 # Create a payment document
-@router.post("/payments", status_code=status.HTTP_201_CREATED)
-async def create_payment(payment: dict, current_user=Depends(get_current_user)):
+
+@router.post("/payments", status_code=status.HTTP_201_CREATED, response_model=PaymentResponse)
+async def create_payment(payment: PaymentRequest, current_user=Depends(get_current_user)):
     try:
-        payment_doc = await create_payment_service(payment)
-        return payment_doc
+        payment_doc = await create_payment_service(payment.dict())
+        return PaymentResponse(**payment_doc)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
 
-@router.get("/payments", status_code=status.HTTP_200_OK)
+
+
+
+# Return paginated payments data (list only)
+@router.get("/payments", status_code=status.HTTP_200_OK, response_model=PaginatedPaymentResponse)
 async def get_payments(
     propertyId: str,
     page: int = Query(1, ge=1),
@@ -28,10 +35,9 @@ async def get_payments(
     status: Optional[str] = Query(None),
     current_user=Depends(get_current_user)
 ):
-    result = get_payments_service(propertyId, page, limit, search, status)
-    if callable(getattr(result, "__await__", None)):
-        result = await result
-    return result
+    result = await get_payments_service(propertyId, page, limit, search, status)
+    print(result)
+    return PaginatedPaymentResponse(**result)
 
 
 # Update payment status
