@@ -302,11 +302,13 @@ export default function AddPropertyScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <View style={styles.container}>
+      <SafeAreaView edges={['top']}>
+        <Header title="Add Property" showBack />
+      </SafeAreaView>
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <Header title="Add Property" showBack />
 
         {renderStepIndicator()}
 
@@ -319,43 +321,45 @@ export default function AddPropertyScreen() {
           {step === 3 && renderStep3()}
         </ScrollView>
 
-        <View style={styles.footer}>
-          {step > 1 && step < 3 && (
-            <TouchableOpacity
-              style={styles.secondaryButton}
-              onPress={() => setStep(step - 1)}>
-              <Text style={styles.secondaryButtonText}>Back</Text>
-            </TouchableOpacity>
-          )}
+        <SafeAreaView edges={['bottom']}>
+          <View style={styles.footer}>
+            {step > 1 && step < 3 && (
+              <TouchableOpacity
+                style={styles.secondaryButton}
+                onPress={() => setStep(step - 1)}>
+                <Text style={styles.secondaryButtonText}>Back</Text>
+              </TouchableOpacity>
+            )}
 
-          {step < 3 ? (
-            <TouchableOpacity
-              style={[
-                styles.primaryButton,
-                step === 1 ? styles.primaryButtonFull : {},
-              ]}
-              onPress={handleNext}
-              disabled={
-                (step === 1 && !canProceedFromStep1()) ||
-                (step === 2 && !canProceedFromStep2())
-              }>
-              <Text style={styles.primaryButtonText}>Next</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={[styles.primaryButton, styles.primaryButtonFull]}
-              onPress={handleSave}
-              disabled={isSubmitting}>
-              {isSubmitting ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.primaryButtonText}>Save Property</Text>
-              )}
-            </TouchableOpacity>
-          )}
-        </View>
+            {step < 3 ? (
+              <TouchableOpacity
+                style={[
+                  styles.primaryButton,
+                  step === 1 ? styles.primaryButtonFull : {},
+                ]}
+                onPress={handleNext}
+                disabled={
+                  (step === 1 && !canProceedFromStep1()) ||
+                  (step === 2 && !canProceedFromStep2())
+                }>
+                <Text style={styles.primaryButtonText}>Next</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[styles.primaryButton, styles.primaryButtonFull]}
+                onPress={handleSave}
+                disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.primaryButtonText}>Save Property</Text>
+                )}
+              </TouchableOpacity>
+            )}
+          </View>
+        </SafeAreaView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 

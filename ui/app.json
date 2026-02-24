@@ -7,8 +7,11 @@
     "icon": "./assets/images/icon.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
-    "platforms": ["ios", "android"],
+    "newArchEnabled": true,
+    "platforms": [
+      "ios",
+      "android"
+    ],
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.tenanttracker.app",
@@ -52,10 +55,10 @@
       "typedRoutes": true
     },
     "extra": {
-      "apiUrl": "http://10.101.44.243:8000",
+      "apiUrl": "http://192.168.0.105:8000",
       "router": {},
       "eas": {
-        "projectId": "545974f5-c944-4b85-8740-7376674822f1"
+        "projectId": "5f3247db-b5d0-48e0-a8d5-19e2e72c37b7"
       }
     }
   }

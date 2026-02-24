@@ -35,7 +35,9 @@ export default function TenantDetailScreen() {
   if (!tenant) {
     return (
       <View style={styles.container}>
-        <Header title="Tenant Details" showBack />
+        <SafeAreaView edges={['top']}>
+          <Header title="Tenant Details" showBack />
+        </SafeAreaView>
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>Tenant not found</Text>
         </View>
@@ -81,25 +83,27 @@ export default function TenantDetailScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      <Header
-        title="Tenant Details"
-        showBack
-        rightComponent={
-          <View style={styles.headerActions}>
-            <TouchableOpacity
-              style={styles.iconButton}
-              onPress={() => setShowEditModal(true)}>
-              <Edit2 size={20} color={Colors.primary} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.iconButton}
-              onPress={() => setDeleteModalVisible(true)}>
-              <Trash2 size={20} color={Colors.danger} />
-            </TouchableOpacity>
-          </View>
-        }
-      />
+    <View style={styles.container}>
+      <SafeAreaView edges={['top']}>
+        <Header
+          title="Tenant Details"
+          showBack
+          rightComponent={
+            <View style={styles.headerActions}>
+              <TouchableOpacity
+                style={styles.iconButton}
+                onPress={() => setShowEditModal(true)}>
+                <Edit2 size={20} color={Colors.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.iconButton}
+                onPress={() => setDeleteModalVisible(true)}>
+                <Trash2 size={20} color={Colors.danger} />
+              </TouchableOpacity>
+            </View>
+          }
+        />
+      </SafeAreaView>
 
       <ScrollView
         style={styles.scrollView}
@@ -238,7 +242,7 @@ export default function TenantDetailScreen() {
           </Pressable>
         </Pressable>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 

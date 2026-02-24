@@ -193,8 +193,10 @@ export default function AddRoomScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      <Header title="Add Room" showBack />
+    <View style={styles.container}>
+      <SafeAreaView edges={['top']}>
+        <Header title="Add Room" showBack />
+      </SafeAreaView>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentPadding}>
         <View style={styles.form}>
@@ -304,18 +306,20 @@ export default function AddRoomScreen() {
         </View>
       </ScrollView>
 
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={styles.submitButton}
-          onPress={handleSubmit}
-          disabled={!canSubmit() || isSubmitting}>
-          {isSubmitting ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.submitButtonText}>Add Room</Text>
-          )}
-        </TouchableOpacity>
-      </View>
+      <SafeAreaView edges={['bottom']}>
+        <View style={styles.footer}>
+          <TouchableOpacity
+            style={styles.submitButton}
+            onPress={handleSubmit}
+            disabled={!canSubmit() || isSubmitting}>
+            {isSubmitting ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.submitButtonText}>Add Room</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
 
       <Modal
         visible={showBuildingDropdown}
@@ -382,7 +386,7 @@ export default function AddRoomScreen() {
           </View>
         </Pressable>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 

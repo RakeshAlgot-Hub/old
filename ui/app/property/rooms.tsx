@@ -31,7 +31,9 @@ export default function ManageRoomsScreen() {
   if (!property) {
     return (
       <View style={styles.container}>
-        <Header title="Manage Rooms" showBack />
+        <SafeAreaView edges={['top']}>
+          <Header title="Manage Rooms" showBack />
+        </SafeAreaView>
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>Property not found</Text>
         </View>
@@ -61,8 +63,10 @@ export default function ManageRoomsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      <Header title="Manage Rooms" showBack />
+    <View style={styles.container}>
+      <SafeAreaView edges={['top']}>
+        <Header title="Manage Rooms" showBack />
+      </SafeAreaView>
 
       <ScrollView style={styles.content}>
         {isLoading ? (
@@ -145,16 +149,18 @@ export default function ManageRoomsScreen() {
       </ScrollView>
 
       {(rooms || []).length > 0 && (
-        <View style={styles.footer}>
-          <TouchableOpacity
-            style={styles.addRoomButton}
-            onPress={() => router.push('/property/add-room')}>
-            <Plus size={20} color="#075E54" />
-            <Text style={styles.addRoomButtonText}>Add Room</Text>
-          </TouchableOpacity>
-        </View>
+        <SafeAreaView edges={['bottom']}>
+          <View style={styles.footer}>
+            <TouchableOpacity
+              style={styles.addRoomButton}
+              onPress={() => router.push('/property/add-room')}>
+              <Plus size={20} color="#075E54" />
+              <Text style={styles.addRoomButtonText}>Add Room</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 

@@ -34,7 +34,8 @@ export function RecentTenants({ tenants, onViewAll }: RecentTenantsProps) {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status?: string) => {
+    if (!status) return Colors.neutral[500];
     switch (status.toLowerCase()) {
       case 'paid':
         return Colors.success;
@@ -83,19 +84,23 @@ export function RecentTenants({ tenants, onViewAll }: RecentTenantsProps) {
                   Checked in {formatDate(tenant.checkInDate)}
                 </Text>
               </View>
-              <View
-                style={[
-                  styles.statusBadge,
-                  { backgroundColor: getStatusColor(tenant.status) + '20' },
-                ]}>
-                <Text
+              {tenant.status ? (
+                <View
                   style={[
-                    styles.statusText,
-                    { color: getStatusColor(tenant.status) },
-                  ]}>
-                  {tenant.status}
-                </Text>
-              </View>
+                    styles.statusBadge,
+                    { backgroundColor: getStatusColor(tenant.status) + '20' },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.statusText,
+                      { color: getStatusColor(tenant.status) },
+                    ]}
+                  >
+                    {tenant.status}
+                  </Text>
+                </View>
+              ) : null}
             </View>
           ))}
         </View>
