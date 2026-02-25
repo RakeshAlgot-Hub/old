@@ -15,22 +15,31 @@ import { useRouter } from 'expo-router';
 import { Building2 } from 'lucide-react-native';
 import { spacing, typography, radius, shadows } from '@/theme';
 import { useTheme } from '@/context/ThemeContext';
-import { useAuth } from '@/context/AuthContext';
 import { authService } from '@/services/apiClient';
-import { tokenStorage } from '@/services/tokenStorage';
 
-export default function LoginScreen() {
+export default function RegisterScreen() {
   const { colors } = useTheme();
-  const { login } = useAuth();
   const router = useRouter();
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleLogin = async () => {
-    if (!email || !password) {
-      setError('Email and password are required');
+  const handleRegister = async () => {
+    if (!name || !email || !password || !confirmPassword) {
+      setError('All fields are required');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
       return;
     }
 
@@ -38,21 +47,16 @@ export default function LoginScreen() {
       setLoading(true);
       setError(null);
 
-      const response = await authService.login({ email, password });
+      const response = await authService.register({ name, email, password });
 
-      if (response.data && response.data.tokens) {
-        await Promise.all([
-          tokenStorage.setAccessToken(response.data.tokens.accessToken),
-          tokenStorage.setRefreshToken(response.data.tokens.refreshToken),
-          tokenStorage.setTokenExpiry(response.data.tokens.expiresAt),
-        ]);
-
-        login(response.data.user);
-      } else {
-        setError('Login failed. Please try again.');
+      if (response.data) {
+        router.push({
+          pathname: '/email-verification-pending',
+          params: { email: response.data.email },
+        });
       }
     } catch (err: any) {
-      setError(err?.message || 'Login failed. Please try again.');
+      setError(err?.message || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -72,21 +76,57 @@ export default function LoginScreen() {
             <View style={[styles.logoCircle, { backgroundColor: colors.primary[50] }]}>
               <Building2 size={48} color={colors.primary[500]} />
             </View>
-            <Text style={[styles.title, { color: colors.text.primary }]}>Hostel Manager</Text>
-            <Text style={[styles.subtitle, { color: colors.text.secondary }]}>Owner Dashboard</Text>
+            <Text style={[styles.title, { color: colors.text.primary }]}>Create Account</Text>
+            <Text style={[styles.subtitle, { color: colors.text.secondary }]}>
+              Start managing your hostels today
+            </Text>
           </View>
 
           <View style={styles.formContainer}>
             {error && (
-              <View style={[styles.errorContainer, { backgroundColor: colors.danger[50], borderColor: colors.danger[200] }]}>
+              <View
+                style={[
+                  styles.errorContainer,
+                  {
+                    backgroundColor: colors.danger[50],
+                    borderColor: colors.danger[200],
+                  },
+                ]}>
                 <Text style={[styles.errorText, { color: colors.danger[700] }]}>{error}</Text>
               </View>
             )}
 
             <View style={styles.inputContainer}>
+              <Text style={[styles.label, { color: colors.text.primary }]}>Name</Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.white,
+                    color: colors.text.primary,
+                    borderColor: colors.border.medium,
+                  },
+                ]}
+                placeholder="John Doe"
+                autoCapitalize="words"
+                placeholderTextColor={colors.text.tertiary}
+                value={name}
+                onChangeText={setName}
+                editable={!loading}
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
               <Text style={[styles.label, { color: colors.text.primary }]}>Email</Text>
               <TextInput
-                style={[styles.input, { backgroundColor: colors.white, color: colors.text.primary, borderColor: colors.border.medium }]}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.white,
+                    color: colors.text.primary,
+                    borderColor: colors.border.medium,
+                  },
+                ]}
                 placeholder="owner@example.com"
                 keyboardType="email-address"
                 autoCapitalize="none"
@@ -100,7 +140,14 @@ export default function LoginScreen() {
             <View style={styles.inputContainer}>
               <Text style={[styles.label, { color: colors.text.primary }]}>Password</Text>
               <TextInput
-                style={[styles.input, { backgroundColor: colors.white, color: colors.text.primary, borderColor: colors.border.medium }]}
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.white,
+                    color: colors.text.primary,
+                    borderColor: colors.border.medium,
+                  },
+                ]}
                 placeholder="••••••••"
                 secureTextEntry
                 placeholderTextColor={colors.text.tertiary}
@@ -110,27 +157,55 @@ export default function LoginScreen() {
               />
             </View>
 
+            <View style={styles.inputContainer}>
+              <Text style={[styles.label, { color: colors.text.primary }]}>Confirm Password</Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  {
+                    backgroundColor: colors.white,
+                    color: colors.text.primary,
+                    borderColor: colors.border.medium,
+                  },
+                ]}
+                placeholder="••••••••"
+                secureTextEntry
+                placeholderTextColor={colors.text.tertiary}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                editable={!loading}
+              />
+            </View>
+
             <TouchableOpacity
-              style={[styles.loginButton, { backgroundColor: colors.primary[500], opacity: loading ? 0.6 : 1 }]}
-              onPress={handleLogin}
+              style={[
+                styles.registerButton,
+                {
+                  backgroundColor: colors.primary[500],
+                  opacity: loading ? 0.6 : 1,
+                },
+              ]}
+              onPress={handleRegister}
               activeOpacity={0.8}
               disabled={loading}>
               {loading ? (
                 <ActivityIndicator color={colors.white} size="small" />
               ) : (
-                <Text style={[styles.loginButtonText, { color: colors.white }]}>Login</Text>
+                <Text style={[styles.registerButtonText, { color: colors.white }]}>
+                  Create Account
+                </Text>
               )}
             </TouchableOpacity>
 
-            <View style={styles.registerLinkContainer}>
-              <Text style={[styles.registerLinkText, { color: colors.text.secondary }]}>
-                Don't have an account?{' '}
+            <View style={styles.loginLinkContainer}>
+              <Text style={[styles.loginLinkText, { color: colors.text.secondary }]}>
+                Already have an account?{' '}
               </Text>
               <TouchableOpacity
-                onPress={() => router.push('/register')}
+                onPress={() => router.back()}
                 activeOpacity={0.7}
                 disabled={loading}>
-                <Text style={[styles.registerLink, { color: colors.primary[500] }]}>Register</Text>
+                <Text style={[styles.loginLink, { color: colors.primary[500] }]}>Login</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -171,6 +246,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: typography.fontSize.md,
+    textAlign: 'center',
   },
   formContainer: {
     width: '100%',
@@ -201,7 +277,7 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.md,
     borderWidth: 1,
   },
-  loginButton: {
+  registerButton: {
     borderRadius: radius.md,
     paddingVertical: spacing.lg,
     alignItems: 'center',
@@ -209,20 +285,20 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     ...shadows.lg,
   },
-  loginButtonText: {
+  registerButtonText: {
     fontSize: typography.fontSize.md,
     fontWeight: typography.fontWeight.semibold,
   },
-  registerLinkContainer: {
+  loginLinkContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: spacing.xl,
   },
-  registerLinkText: {
+  loginLinkText: {
     fontSize: typography.fontSize.sm,
   },
-  registerLink: {
+  loginLink: {
     fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.semibold,
   },

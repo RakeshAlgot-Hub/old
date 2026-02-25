@@ -36,11 +36,20 @@ async def register_user_service(user: UserCreate):
     }
     result = await users_collection.insert_one(user_doc)
     user_id = str(result.inserted_id)
+    import time
     access_token = create_access_token({"sub": user_id})
     refresh_token = create_refresh_token({"sub": user_id})
+    expires_at = int(time.time()) + 60 * 60 * 24 * 7  # 7 days expiry, adjust as needed
     user_out = UserOut(id=user_id, name=user_doc["name"], email=user_doc["email"])
-    response = AuthResponse(accessToken=access_token, refreshToken=refresh_token, user=user_out)
-    return JSONResponse(status_code=status.HTTP_201_CREATED, content=response.dict())
+    response = {
+        "user": user_out.dict(),
+        "tokens": {
+            "accessToken": access_token,
+            "refreshToken": refresh_token,
+            "expiresAt": expires_at
+        }
+    }
+    return JSONResponse(status_code=status.HTTP_201_CREATED, content={"data": response})
 
 async def login_user_service(data: UserLogin):
     user = await users_collection.find_one({"email": data.email})
@@ -49,11 +58,20 @@ async def login_user_service(data: UserLogin):
     if user.get("isDeleted"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is deleted")
     await users_collection.update_one({"_id": user["_id"]}, {"$set": {"lastLogin": datetime.now(timezone.utc)}})
-    token = create_access_token({"sub": str(user["_id"])})
+    import time
+    access_token = create_access_token({"sub": str(user["_id"])})
     refresh_token = create_refresh_token({"sub": str(user["_id"])})
+    expires_at = int(time.time()) + 60 * 60 * 24 * 7  # 7 days expiry, adjust as needed
     user_out = UserOut(id=str(user["_id"]), name=user["name"], email=user["email"])
-    response = AuthResponse(accessToken=token, refreshToken=refresh_token, user=user_out)
-    return JSONResponse(status_code=status.HTTP_200_OK, content=response.dict())
+    response = {
+        "user": user_out.dict(),
+        "tokens": {
+            "accessToken": access_token,
+            "refreshToken": refresh_token,
+            "expiresAt": expires_at
+        }
+    }
+    return JSONResponse(status_code=status.HTTP_200_OK, content={"data": response})
 
 async def refresh_token_service(payload: dict):
     refresh_token = payload.get("refreshToken")

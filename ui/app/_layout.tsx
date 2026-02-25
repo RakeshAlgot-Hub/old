@@ -17,10 +17,11 @@ function RootNavigator() {
     if (loading) return;
 
     const inAuthGroup = segments[0] === '(tabs)' || segments[0] === 'property-detail' || segments[0] === 'subscription';
+    const inPublicRoute = segments[0] === 'register' || segments[0] === 'email-verification-pending';
 
     if (!isAuthenticated && inAuthGroup) {
       router.replace('/');
-    } else if (isAuthenticated && !inAuthGroup) {
+    } else if (isAuthenticated && !inAuthGroup && !inPublicRoute) {
       router.replace('/(tabs)/dashboard');
     }
   }, [isAuthenticated, loading, segments]);
@@ -37,6 +38,8 @@ function RootNavigator() {
     <>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
+        <Stack.Screen name="register" />
+        <Stack.Screen name="email-verification-pending" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="property-detail" />
         <Stack.Screen name="subscription" />

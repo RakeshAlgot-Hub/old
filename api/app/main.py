@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 import os
-from app.routes import health, rooms, auth, properties, units, tenants, units_update, dashboard, payments
+from app.routes import health, auth
 from app.utils.rate_limit import limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -25,21 +25,7 @@ async def ensure_indexes():
     # Users: unique email, index on createdAt
     await db["users"].create_index("email", unique=True)
     await db["users"].create_index("createdAt")
-    # Properties: index on ownerId, createdAt
-    await db["properties"].create_index("ownerId")
-    await db["properties"].create_index("createdAt")
-    # Rooms: index on propertyId, buildingId, createdAt
-    await db["rooms"].create_index("propertyId")
-    await db["rooms"].create_index("buildingId")
-    await db["rooms"].create_index("createdAt")
-    # Units: index on propertyId, buildingId, currentTenantId, createdAt
-    await db["units"].create_index("propertyId")
-    await db["units"].create_index("buildingId")
-    await db["units"].create_index("currentTenantId")
-    await db["units"].create_index("createdAt")
-    # Tenants: index on propertyId, createdAt
-    await db["tenants"].create_index("propertyId")
-    await db["tenants"].create_index("createdAt")
+    
     # Token blacklist: TTL index on createdAt (7 days)
     await db["token_blacklist"].create_index("createdAt", expireAfterSeconds=60*60*24*7)
 
@@ -82,13 +68,7 @@ app.add_middleware(
 API_PREFIX = "/api/v1"
 app.include_router(health.router, prefix=API_PREFIX)
 app.include_router(auth.router, prefix=API_PREFIX)
-app.include_router(properties.router, prefix=API_PREFIX)
-app.include_router(rooms.router, prefix=API_PREFIX)
-app.include_router(units.router, prefix=API_PREFIX)
-app.include_router(tenants.router, prefix=API_PREFIX)
-app.include_router(units_update.router, prefix=API_PREFIX)
-app.include_router(dashboard.router, prefix=API_PREFIX)
-app.include_router(payments.router, prefix=API_PREFIX)
+
 
 # Register global exception handlers
 add_global_exception_handlers(app)

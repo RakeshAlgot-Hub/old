@@ -10,6 +10,8 @@ import {
   PaginatedResponse,
   LoginCredentials,
   LoginResponse,
+  RegisterCredentials,
+  RegisterResponse,
   ApiError,
 } from './apiTypes';
 import { tokenStorage } from './tokenStorage';
@@ -149,6 +151,18 @@ export const authService = {
     credentials: LoginCredentials
   ): Promise<ApiResponse<LoginResponse>> {
     return await request<LoginResponse>('POST', '/auth/login', credentials, false) as ApiResponse<LoginResponse>;
+  },
+
+  async register(
+    credentials: RegisterCredentials
+  ): Promise<ApiResponse<RegisterResponse>> {
+    return await request<RegisterResponse>('POST', '/auth/register', credentials, false) as ApiResponse<RegisterResponse>;
+  },
+
+  async resendVerification(
+    email: string
+  ): Promise<ApiResponse<{ message: string }>> {
+    return await request<{ message: string }>('POST', '/auth/resend-verification', { email }, false) as ApiResponse<{ message: string }>;
   },
 
   async logout(): Promise<ApiResponse<{ success: boolean }>> {
