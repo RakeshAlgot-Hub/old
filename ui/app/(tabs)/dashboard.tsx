@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import ScreenContainer from '@/components/ScreenContainer';
 import PropertySwitcher from '@/components/PropertySwitcher';
 import SectionHeader from '@/components/SectionHeader';
@@ -86,11 +87,13 @@ export default function DashboardScreen() {
     }
   };
 
-  useEffect(() => {
-    if (!propertyLoading) {
-      fetchDashboardData();
-    }
-  }, [selectedPropertyId, propertyLoading]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!propertyLoading) {
+        fetchDashboardData();
+      }
+    }, [selectedPropertyId, propertyLoading])
+  );
 
   const handleRetry = () => {
     fetchDashboardData();

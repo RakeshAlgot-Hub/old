@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import ScreenContainer from '@/components/ScreenContainer';
 import Card from '@/components/Card';
 import EmptyState from '@/components/EmptyState';
@@ -68,9 +69,11 @@ export default function ManageBedsScreen() {
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, [roomId, selectedPropertyId]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [roomId, selectedPropertyId])
+  );
 
   const handleRetry = () => {
     fetchData();

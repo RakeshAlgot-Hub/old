@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import ScreenContainer from '@/components/ScreenContainer';
 import PropertySwitcher from '@/components/PropertySwitcher';
 import StatusBadge from '@/components/StatusBadge';
@@ -77,11 +78,13 @@ export default function TenantsScreen() {
     }
   };
 
-  useEffect(() => {
-    if (!propertyLoading) {
-      fetchTenants();
-    }
-  }, [selectedPropertyId, propertyLoading]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!propertyLoading) {
+        fetchTenants();
+      }
+    }, [selectedPropertyId, propertyLoading])
+  );
 
   const handleRetry = () => {
     fetchTenants();

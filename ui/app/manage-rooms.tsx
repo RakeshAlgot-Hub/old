@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import ScreenContainer from '@/components/ScreenContainer';
 import Card from '@/components/Card';
 import FAB from '@/components/FAB';
@@ -51,11 +52,13 @@ export default function ManageRoomsScreen() {
     }
   };
 
-  useEffect(() => {
-    if (!propertyLoading) {
-      fetchRooms();
-    }
-  }, [selectedPropertyId, propertyLoading]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!propertyLoading) {
+        fetchRooms();
+      }
+    }, [selectedPropertyId, propertyLoading])
+  );
 
   const handleRetry = () => {
     fetchRooms();
