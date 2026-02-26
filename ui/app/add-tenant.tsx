@@ -20,6 +20,7 @@ import { useProperty } from '@/context/PropertyContext';
 import { tenantService, roomService, bedService } from '@/services/apiClient';
 import type { Room, Bed } from '@/services/apiTypes';
 import EmptyState from '@/components/EmptyState';
+import UpgradeModal from '@/components/UpgradeModal';
 
 export default function AddTenantScreen() {
   const { colors } = useTheme();
@@ -44,6 +45,7 @@ export default function AddTenantScreen() {
 
   const [showRoomPicker, setShowRoomPicker] = useState(false);
   const [showBedPicker, setShowBedPicker] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   useEffect(() => {
     if (selectedPropertyId) {
@@ -131,7 +133,12 @@ export default function AddTenantScreen() {
 
       router.back();
     } catch (err: any) {
-      setError(err?.message || 'Failed to create tenant');
+      if (err?.code === 'TENANT_LIMIT_REACHED') {
+        setShowUpgradeModal(true);
+        setError('Tenant limit reached. Please upgrade your plan.');
+      } else {
+        setError(err?.message || 'Failed to create tenant');
+      }
     } finally {
       setLoading(false);
     }
@@ -561,6 +568,15 @@ export default function AddTenantScreen() {
           </View>
         </View>
       </Modal>
+
+      <UpgradeModal
+        visible={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        onSelectPlan={() => {
+          setShowUpgradeModal(false);
+          router.back();
+        }}
+      />
     </SafeAreaView>
   );
 }

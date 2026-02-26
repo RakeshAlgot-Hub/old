@@ -16,12 +16,9 @@ import EmptyState from '@/components/EmptyState';
 import Skeleton from '@/components/Skeleton';
 import ApiErrorCard from '@/components/ApiErrorCard';
 import FAB from '@/components/FAB';
-import LimitBanner from '@/components/LimitBanner';
-import UpgradeNudge from '@/components/UpgradeNudge';
 import UpgradeModal from '@/components/UpgradeModal';
 import { Search, Filter, Phone, Mail, MapPin, Users } from 'lucide-react-native';
 import { spacing, typography, radius, shadows } from '@/theme';
-import { planConfig, isLimitReached } from '@/config/planConfig';
 import { useTheme } from '@/context/ThemeContext';
 import { useProperty } from '@/context/PropertyContext';
 import { tenantService, roomService, bedService } from '@/services/apiClient';
@@ -38,8 +35,6 @@ export default function TenantsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-
-  const limitReached = isLimitReached('tenants');
 
   const fetchTenants = async () => {
     if (!selectedPropertyId) {
@@ -93,11 +88,7 @@ export default function TenantsScreen() {
   };
 
   const handleFabPress = () => {
-    if (limitReached) {
-      setShowUpgradeModal(true);
-    } else {
-      router.push('/add-tenant');
-    }
+    router.push('/add-tenant');
   };
 
   const getBedInfo = (bedId: string) => {
@@ -168,13 +159,6 @@ export default function TenantsScreen() {
         </TouchableOpacity>
       </View>
 
-      {limitReached && (
-        <LimitBanner
-          message="You've reached your tenant limit. Upgrade to add more."
-          onUpgrade={() => setShowUpgradeModal(true)}
-        />
-      )}
-
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
@@ -240,10 +224,6 @@ export default function TenantsScreen() {
             </View>
           </Card>
         ))}
-
-            {planConfig.currentPlan === 'free' && (
-              <UpgradeNudge message="Pro users get SMS reminders and automated notifications for tenants" />
-            )}
           </>
         )}
       </ScrollView>
