@@ -7,6 +7,7 @@ import {
   Usage,
   PlanLimits,
   Room,
+  Bed,
   ApiResponse,
   PaginatedResponse,
   LoginCredentials,
@@ -341,5 +342,30 @@ export const roomService = {
 
   async deleteRoom(id: string): Promise<ApiResponse<{ success: boolean }>> {
     return await request<{ success: boolean }>('DELETE', `/rooms/${id}`, undefined, true) as ApiResponse<{ success: boolean }>;
+  },
+};
+
+export const bedService = {
+  async getBeds(): Promise<PaginatedResponse<Bed>> {
+    return await request<Bed>('GET', '/beds', undefined, true) as PaginatedResponse<Bed>;
+  },
+
+  async getBedById(id: string): Promise<ApiResponse<Bed>> {
+    return await request<Bed>('GET', `/beds/${id}`, undefined, true) as ApiResponse<Bed>;
+  },
+
+  async createBed(data: Partial<Bed>): Promise<ApiResponse<Bed>> {
+    return await request<Bed>('POST', '/beds', data, true) as ApiResponse<Bed>;
+  },
+
+  async updateBed(
+    id: string,
+    data: Partial<Bed>
+  ): Promise<ApiResponse<Bed>> {
+    return await request<Bed>('PATCH', `/beds/${id}`, data, true) as ApiResponse<Bed>;
+  },
+
+  async deleteBed(id: string): Promise<ApiResponse<{ success: boolean }>> {
+    return await request<{ success: boolean }>('DELETE', `/beds/${id}`, undefined, true) as ApiResponse<{ success: boolean }>;
   },
 };

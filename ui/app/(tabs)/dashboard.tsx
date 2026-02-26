@@ -24,14 +24,16 @@ import { useProperty } from '@/context/PropertyContext';
 import {
   tenantService,
   paymentService,
+  bedService,
 } from '@/services/apiClient';
-import type { Tenant, Payment } from '@/services/apiTypes';
+import type { Tenant, Payment, Bed as BedType } from '@/services/apiTypes';
 
 interface DashboardData {
   tenants: Tenant[];
   payments: Payment[];
   duePayments: Payment[];
   overduePayments: Payment[];
+  beds: BedType[];
 }
 
 export default function DashboardScreen() {
@@ -53,13 +55,15 @@ export default function DashboardScreen() {
       setLoading(true);
       setError(null);
 
-      const [tenantsRes, paymentsRes] = await Promise.all([
+      const [tenantsRes, paymentsRes, bedsRes] = await Promise.all([
         tenantService.getTenants(),
         paymentService.getPayments(),
+        bedService.getBeds(),
       ]);
 
       const tenants = (tenantsRes.data || []).filter(t => t.propertyId === selectedPropertyId);
       const payments = (paymentsRes.data || []).filter(p => p.propertyId === selectedPropertyId);
+      const beds = (bedsRes.data || []).filter(b => b.propertyId === selectedPropertyId);
 
       const duePayments = payments.filter((p) => p.status === 'due');
       const overduePayments = payments.filter((p) => p.status === 'overdue');
@@ -69,6 +73,7 @@ export default function DashboardScreen() {
         payments,
         duePayments,
         overduePayments,
+        beds,
       });
     } catch (err: any) {
       if (err?.code === 'upgrade_required') {
@@ -130,8 +135,8 @@ export default function DashboardScreen() {
     );
   }
 
-  const totalBeds = 0;
-  const occupiedBeds = dashboardData?.tenants.length || 0;
+  const totalBeds = dashboardData?.beds.length || 0;
+  const occupiedBeds = dashboardData?.beds.filter(b => b.status === 'occupied').length || 0;
   const occupancyRate = totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0;
 
   const stats = [

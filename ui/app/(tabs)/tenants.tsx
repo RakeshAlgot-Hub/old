@@ -24,14 +24,16 @@ import { spacing, typography, radius, shadows } from '@/theme';
 import { planConfig, isLimitReached } from '@/config/planConfig';
 import { useTheme } from '@/context/ThemeContext';
 import { useProperty } from '@/context/PropertyContext';
-import { tenantService } from '@/services/apiClient';
-import type { Tenant } from '@/services/apiTypes';
+import { tenantService, roomService, bedService } from '@/services/apiClient';
+import type { Tenant, Room, Bed } from '@/services/apiTypes';
 
 export default function TenantsScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const { selectedProperty, selectedPropertyId, loading: propertyLoading } = useProperty();
   const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [beds, setBeds] = useState<Bed[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
@@ -48,12 +50,26 @@ export default function TenantsScreen() {
     try {
       setLoading(true);
       setError(null);
-      const response = await tenantService.getTenants();
+      const [tenantsRes, roomsRes, bedsRes] = await Promise.all([
+        tenantService.getTenants(),
+        roomService.getRooms(),
+        bedService.getBeds(),
+      ]);
 
-      if (response.data) {
-        const filteredTenants = response.data.filter(t => t.propertyId === selectedPropertyId);
+      if (tenantsRes.data) {
+        const filteredTenants = tenantsRes.data.filter(t => t.propertyId === selectedPropertyId);
         setTenants(filteredTenants);
         setTotal(filteredTenants.length);
+      }
+
+      if (roomsRes.data) {
+        const filteredRooms = roomsRes.data.filter(r => r.propertyId === selectedPropertyId);
+        setRooms(filteredRooms);
+      }
+
+      if (bedsRes.data) {
+        const filteredBeds = bedsRes.data.filter(b => b.propertyId === selectedPropertyId);
+        setBeds(filteredBeds);
       }
     } catch (err: any) {
       if (err?.code === 'upgrade_required') {
@@ -82,6 +98,14 @@ export default function TenantsScreen() {
     } else {
       // FAB action placeholder
     }
+  };
+
+  const getBedInfo = (bedId: string) => {
+    const bed = beds.find(b => b.id === bedId);
+    if (!bed) return 'N/A';
+    const room = rooms.find(r => r.id === bed.roomId);
+    if (!room) return `Bed ${bed.bedNumber}`;
+    return `Room ${room.roomNumber} - Bed ${bed.bedNumber}`;
   };
 
   if (propertyLoading || loading) {
@@ -192,7 +216,7 @@ export default function TenantsScreen() {
             <View style={styles.detailsRow}>
               <View style={styles.detailItem}>
                 <Text style={[styles.detailLabel, { color: colors.text.tertiary }]}>Bed</Text>
-                <Text style={[styles.detailValue, { color: colors.text.primary }]}>{tenant.bed}</Text>
+                <Text style={[styles.detailValue, { color: colors.text.primary }]}>{getBedInfo(tenant.bedId)}</Text>
               </View>
               <View style={styles.detailItem}>
                 <Text style={[styles.detailLabel, { color: colors.text.tertiary }]}>Rent</Text>

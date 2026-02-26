@@ -27,10 +27,11 @@ export interface PropertyStats {
 export interface Tenant {
   id: string;
   propertyId: string;
+  roomId: string;
+  bedId: string;
   name: string;
   email: string;
   phone: string;
-  bed: string;
   rent: string;
   status: 'paid' | 'due' | 'overdue';
   joinDate: string;
@@ -171,6 +172,16 @@ export interface Room {
   floor: string;
   price: number;
   numberOfBeds: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Bed {
+  id: string;
+  propertyId: string;
+  roomId: string;
+  bedNumber: string;
+  status: 'available' | 'occupied' | 'maintenance';
   createdAt: string;
   updatedAt: string;
 }

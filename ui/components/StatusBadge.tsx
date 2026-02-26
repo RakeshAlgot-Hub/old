@@ -3,7 +3,7 @@ import { spacing, radius, typography } from '@/theme';
 import { useTheme } from '@/context/ThemeContext';
 
 interface StatusBadgeProps {
-  status: 'paid' | 'due' | 'overdue' | 'occupied' | 'vacant' | 'maintenance';
+  status: 'paid' | 'due' | 'overdue' | 'occupied' | 'vacant' | 'available' | 'maintenance';
   label?: string;
 }
 
@@ -35,6 +35,11 @@ export default function StatusBadge({ status, label }: StatusBadgeProps) {
       bg: colors.success[100],
       text: colors.success[700],
       label: label || 'VACANT',
+    },
+    available: {
+      bg: colors.success[100],
+      text: colors.success[700],
+      label: label || 'AVAILABLE',
     },
     maintenance: {
       bg: colors.warning[100],

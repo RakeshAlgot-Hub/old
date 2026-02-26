@@ -4,6 +4,11 @@ from datetime import datetime,timezone
 import uuid
 
 class RoomService:
+    async def is_property_owner(self, user_id: str, property_id: str) -> bool:
+        from app.database.mongodb import db
+        prop = await db["properties"].find_one({"id": property_id, "ownerId": user_id})
+        return prop is not None
+
     def __init__(self):
         self.collection = getCollection("rooms")
 
@@ -24,7 +29,6 @@ class RoomService:
         return None
 
     async def create_room(self, room_data: dict):
-                
         now = datetime.now(timezone.utc).isoformat()
         if not room_data.get("id"):
             room_data["id"] = str(uuid.uuid4())
@@ -36,7 +40,6 @@ class RoomService:
         return Room(**room_data)
 
     async def update_room(self, room_id: str, room_data: dict):
-              
         room_data["updatedAt"] = datetime.now(timezone.utc).isoformat()
         await self.collection.update_one({"id": room_id}, {"$set": room_data})
         doc = await self.collection.find_one({"id": room_id})

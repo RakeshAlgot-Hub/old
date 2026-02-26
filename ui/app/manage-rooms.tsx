@@ -14,7 +14,7 @@ import FAB from '@/components/FAB';
 import EmptyState from '@/components/EmptyState';
 import Skeleton from '@/components/Skeleton';
 import ApiErrorCard from '@/components/ApiErrorCard';
-import { ChevronLeft, DoorOpen, Bed, IndianRupee } from 'lucide-react-native';
+import { ChevronLeft, DoorOpen, Bed, IndianRupee, Eye } from 'lucide-react-native';
 import { spacing, typography, radius } from '@/theme';
 import { useTheme } from '@/context/ThemeContext';
 import { useProperty } from '@/context/PropertyContext';
@@ -196,6 +196,18 @@ export default function ManageRoomsScreen() {
                     </Text>
                   </View>
                 </View>
+
+                <View style={[styles.divider, { backgroundColor: colors.border.light }]} />
+
+                <TouchableOpacity
+                  style={[styles.viewBedsButton, { backgroundColor: colors.primary[50], borderColor: colors.primary[200] }]}
+                  onPress={() => router.push(`/manage-beds?roomId=${room.id}`)}
+                  activeOpacity={0.7}>
+                  <Eye size={16} color={colors.primary[600]} />
+                  <Text style={[styles.viewBedsText, { color: colors.primary[600] }]}>
+                    View Beds
+                  </Text>
+                </TouchableOpacity>
               </Card>
             ))}
           </>
@@ -291,5 +303,18 @@ const styles = StyleSheet.create({
   detailValue: {
     fontSize: typography.fontSize.md,
     fontWeight: typography.fontWeight.semibold,
+  },
+  viewBedsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+  },
+  viewBedsText: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semibold,
+    marginLeft: spacing.xs,
   },
 });
