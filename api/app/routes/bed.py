@@ -12,10 +12,12 @@ from app.services.bed_service import (
 router = APIRouter(prefix="/beds", tags=["beds"])
 
 @router.get("/", response_model=List[BedOut])
+@router.get("", response_model=List[BedOut])
 async def list_beds():
     return await list_beds_service()
 
 @router.post("/", response_model=BedOut, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=BedOut, status_code=status.HTTP_201_CREATED)
 async def create_bed(bed: BedCreate):
     return await create_bed_service(bed)
 

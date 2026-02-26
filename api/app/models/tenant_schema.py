@@ -4,11 +4,12 @@ from typing import Optional
 class Tenant(BaseModel):
     id: Optional[str] = None
     propertyId: str
+    roomId: Optional[str] = None
+    bedId: Optional[str] = None
     name: str
     email: str
     phone: str
-    bed: str
-    rent: str
+    rent: str  # Accept plain string, not formatted
     status: str
     joinDate: str
     createdAt: Optional[str] = None

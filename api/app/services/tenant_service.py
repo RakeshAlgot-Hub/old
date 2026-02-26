@@ -4,6 +4,11 @@ import uuid
 from datetime import datetime, timezone
 
 class TenantService:
+    async def is_property_owner(self, user_id: str, property_id: str) -> bool:
+        from app.database.mongodb import db
+        prop = await db["properties"].find_one({"id": property_id, "ownerId": user_id})
+        return prop is not None
+
     def __init__(self):
         self.collection = getCollection("tenants")
 
