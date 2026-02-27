@@ -22,8 +22,8 @@ import { Search, Filter, Phone, Mail, MapPin, Users } from 'lucide-react-native'
 import { spacing, typography, radius, shadows } from '@/theme';
 import { useTheme } from '@/context/ThemeContext';
 import { useProperty } from '@/context/PropertyContext';
-import { tenantService, roomService, bedService } from '@/services/apiClient';
-import type { Tenant, Room, Bed } from '@/services/apiTypes';
+import { tenantService, roomService, bedService, paymentService } from '@/services/apiClient';
+import type { Tenant, Room, Bed, Payment } from '@/services/apiTypes';
 
 export default function TenantsScreen() {
   const { colors } = useTheme();
@@ -32,6 +32,7 @@ export default function TenantsScreen() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [beds, setBeds] = useState<Bed[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
@@ -46,10 +47,11 @@ export default function TenantsScreen() {
     try {
       setLoading(true);
       setError(null);
-      const [tenantsRes, roomsRes, bedsRes] = await Promise.all([
+      const [tenantsRes, roomsRes, bedsRes, paymentsRes] = await Promise.all([
         tenantService.getTenants(),
         roomService.getRooms(),
         bedService.getBeds(),
+        paymentService.getPayments(),
       ]);
 
       if (tenantsRes.data) {
@@ -66,6 +68,11 @@ export default function TenantsScreen() {
       if (bedsRes.data) {
         const filteredBeds = bedsRes.data.filter(b => b.propertyId === selectedPropertyId);
         setBeds(filteredBeds);
+      }
+
+      if (paymentsRes.data) {
+        const filteredPayments = paymentsRes.data.filter(p => p.propertyId === selectedPropertyId);
+        setPayments(filteredPayments);
       }
     } catch (err: any) {
       if (err?.code === 'upgrade_required') {
@@ -100,6 +107,15 @@ export default function TenantsScreen() {
     const room = rooms.find(r => r.id === bed.roomId);
     if (!room) return `Bed ${bed.bedNumber}`;
     return `Room ${room.roomNumber} - Bed ${bed.bedNumber}`;
+  };
+
+  const getLatestPaymentStatus = (tenantId: string): 'paid' | 'due' | 'overdue' | null => {
+    const tenantPayments = payments
+      .filter(p => p.tenantId === tenantId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    if (tenantPayments.length === 0) return null;
+    return tenantPayments[0].status;
   };
 
   if (propertyLoading || loading) {
@@ -177,56 +193,70 @@ export default function TenantsScreen() {
           />
         ) : (
           <>
-            {tenants.map((tenant, index) => (
-              <Card key={index} style={styles.tenantCard}>
-            <View style={styles.tenantHeader}>
-              <View style={[styles.avatar, { backgroundColor: colors.primary[500] }]}>
-                <Text style={[styles.avatarText, { color: colors.white }]}>
-                  {tenant.name
-                    .split(' ')
-                    .map((n) => n[0])
-                    .join('')}
-                </Text>
-              </View>
-              <View style={styles.tenantInfo}>
-                <Text style={[styles.tenantName, { color: colors.text.primary }]}>{tenant.name}</Text>
-                <View style={styles.propertyRow}>
-                  <MapPin size={14} color={colors.text.secondary} />
-                  <Text style={[styles.propertyText, { color: colors.text.secondary }]}>{selectedProperty.name}</Text>
-                </View>
-              </View>
-              <StatusBadge status={tenant.status} />
-            </View>
+            {tenants.map((tenant, index) => {
+              const paymentStatus = getLatestPaymentStatus(tenant.id);
+              return (
+                <TouchableOpacity
+                  key={index}
+                  onPress={() => router.push(`/tenant-detail?tenantId=${tenant.id}`)}
+                  activeOpacity={0.7}>
+                  <Card style={styles.tenantCard}>
+                    <View style={styles.tenantHeader}>
+                    <View style={[styles.avatar, { backgroundColor: colors.primary[500] }]}>
+                      <Text style={[styles.avatarText, { color: colors.white }]}>
+                        {tenant.name
+                          .split(' ')
+                          .map((n) => n[0])
+                          .join('')}
+                      </Text>
+                    </View>
+                    <View style={styles.tenantInfo}>
+                      <Text style={[styles.tenantName, { color: colors.text.primary }]}>{tenant.name}</Text>
+                      <View style={styles.propertyRow}>
+                        <MapPin size={14} color={colors.text.secondary} />
+                        <Text style={[styles.propertyText, { color: colors.text.secondary }]}>{selectedProperty.name}</Text>
+                      </View>
+                    </View>
+                    {paymentStatus ? (
+                      <StatusBadge status={paymentStatus} />
+                    ) : (
+                      <View style={[styles.noPaymentBadge, { backgroundColor: colors.neutral[100] }]}>
+                        <Text style={[styles.noPaymentText, { color: colors.neutral[600] }]}>NO PAYMENT</Text>
+                      </View>
+                    )}
+                  </View>
 
-            <View style={[styles.divider, { backgroundColor: colors.border.light }]} />
+                  <View style={[styles.divider, { backgroundColor: colors.border.light }]} />
 
-            <View style={styles.detailsRow}>
-              <View style={styles.detailItem}>
-                <Text style={[styles.detailLabel, { color: colors.text.tertiary }]}>Bed</Text>
-                <Text style={[styles.detailValue, { color: colors.text.primary }]}>{getBedInfo(tenant.bedId)}</Text>
-              </View>
-              <View style={styles.detailItem}>
-                <Text style={[styles.detailLabel, { color: colors.text.tertiary }]}>Rent</Text>
-                <Text style={[styles.detailValue, { color: colors.text.primary }]}>{tenant.rent}</Text>
-              </View>
-              <View style={styles.detailItem}>
-                <Text style={[styles.detailLabel, { color: colors.text.tertiary }]}>Since</Text>
-                <Text style={[styles.detailValue, { color: colors.text.primary }]}>{tenant.joinDate}</Text>
-              </View>
-            </View>
+                  <View style={styles.detailsRow}>
+                    <View style={styles.detailItem}>
+                      <Text style={[styles.detailLabel, { color: colors.text.tertiary }]}>Bed</Text>
+                      <Text style={[styles.detailValue, { color: colors.text.primary }]}>{getBedInfo(tenant.bedId)}</Text>
+                    </View>
+                    <View style={styles.detailItem}>
+                      <Text style={[styles.detailLabel, { color: colors.text.tertiary }]}>Rent</Text>
+                      <Text style={[styles.detailValue, { color: colors.text.primary }]}>{tenant.rent}</Text>
+                    </View>
+                    <View style={styles.detailItem}>
+                      <Text style={[styles.detailLabel, { color: colors.text.tertiary }]}>Since</Text>
+                      <Text style={[styles.detailValue, { color: colors.text.primary }]}>{tenant.joinDate}</Text>
+                    </View>
+                  </View>
 
-            <View style={styles.contactRow}>
-              <View style={styles.contactItem}>
-                <Phone size={14} color={colors.text.secondary} />
-                <Text style={[styles.contactText, { color: colors.text.secondary }]}>{tenant.phone}</Text>
-              </View>
-              <View style={styles.contactItem}>
-                <Mail size={14} color={colors.text.secondary} />
-                <Text style={[styles.contactText, { color: colors.text.secondary }]}>{tenant.email}</Text>
-              </View>
-            </View>
-          </Card>
-        ))}
+                  <View style={styles.contactRow}>
+                    <View style={styles.contactItem}>
+                      <Phone size={14} color={colors.text.secondary} />
+                      <Text style={[styles.contactText, { color: colors.text.secondary }]}>{tenant.phone}</Text>
+                    </View>
+                    <View style={styles.contactItem}>
+                      <Mail size={14} color={colors.text.secondary} />
+                      <Text style={[styles.contactText, { color: colors.text.secondary }]}>{tenant.email}</Text>
+                    </View>
+                  </View>
+                  </Card>
+                </TouchableOpacity>
+              );
+            })}
           </>
         )}
       </ScrollView>
@@ -323,6 +353,15 @@ const styles = StyleSheet.create({
   propertyText: {
     fontSize: typography.fontSize.sm,
     marginLeft: spacing.xs,
+  },
+  noPaymentBadge: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.sm,
+  },
+  noPaymentText: {
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.semibold,
   },
   divider: {
     height: 1,

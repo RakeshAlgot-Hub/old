@@ -17,7 +17,7 @@ function RootNavigator() {
   useEffect(() => {
     if (loading) return;
 
-    const inAuthGroup = segments[0] === '(tabs)' || segments[0] === 'property-detail' || segments[0] === 'subscription' || segments[0] === 'manage-properties' || segments[0] === 'property-form' || segments[0] === 'manage-rooms' || segments[0] === 'room-form' || segments[0] === 'manage-beds' || segments[0] === 'manage-staff' || segments[0] === 'manage-teams' || segments[0] === 'add-tenant' || segments[0] === 'add-payment';
+    const inAuthGroup = segments[0] === '(tabs)' || segments[0] === 'property-detail' || segments[0] === 'subscription' || segments[0] === 'manage-properties' || segments[0] === 'property-form' || segments[0] === 'manage-rooms' || segments[0] === 'room-form' || segments[0] === 'manage-beds' || segments[0] === 'manage-staff' || segments[0] === 'manage-teams' || segments[0] === 'add-tenant' || segments[0] === 'add-payment' || segments[0] === 'tenant-detail';
     const inPublicRoute = segments[0] === 'register' || segments[0] === 'email-verification-pending' || segments[0] === 'otp-verification' || segments[0] === 'forgot-password' || segments[0] === 'reset-password';
 
     if (!isAuthenticated && inAuthGroup) {
@@ -56,6 +56,8 @@ function RootNavigator() {
         <Stack.Screen name="manage-teams" />
         <Stack.Screen name="add-tenant" />
         <Stack.Screen name="add-payment" />
+        <Stack.Screen name="edit-payment" />
+        <Stack.Screen name="tenant-detail" />
         <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style={isDark ? 'light' : 'dark'} />

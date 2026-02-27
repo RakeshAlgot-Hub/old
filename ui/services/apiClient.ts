@@ -279,6 +279,13 @@ export const paymentService = {
     return await request<Payment>('POST', '/payments', data, true) as ApiResponse<Payment>;
   },
 
+  async updatePayment(
+    id: string,
+    data: Partial<Payment>
+  ): Promise<ApiResponse<Payment>> {
+    return await request<Payment>('PATCH', `/payments/${id}`, data, true) as ApiResponse<Payment>;
+  },
+
   async getPaymentStats(): Promise<
     ApiResponse<{
       collected: string;

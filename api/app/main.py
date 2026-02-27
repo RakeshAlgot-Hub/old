@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 import os
-from app.routes import health, auth, property, room, tenant, bed
+from app.routes import health, auth, property, room, tenant, bed, subscription
 from app.utils.rate_limit import limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -78,6 +78,7 @@ app.include_router(room.router, prefix=API_PREFIX)
 app.include_router(tenant.router, prefix=API_PREFIX)
 app.include_router(bed.router, prefix=API_PREFIX)
 app.include_router(payment.router, prefix=API_PREFIX)
+app.include_router(subscription.router, prefix=API_PREFIX)
 
 
 # Register global exception handlers

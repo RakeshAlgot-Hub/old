@@ -220,7 +220,8 @@ export default function PaymentsScreen() {
               <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>All Payments</Text>
 
               {payments.map((payment, index) => (
-                <Card key={index} style={styles.paymentCard}>
+                <TouchableOpacity key={index} activeOpacity={0.7} onPress={() => router.push(`/edit-payment?paymentId=${payment.id}`)}>
+                <Card style={styles.paymentCard}>
                   <View style={styles.paymentHeader}>
                     <View style={styles.statusIconContainer}>
                       {getStatusIcon(payment.status)}
@@ -252,6 +253,7 @@ export default function PaymentsScreen() {
                     )}
                   </View>
                 </Card>
+                </TouchableOpacity>
               ))}
             </View>
           </>
