@@ -1,11 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Body
 from typing import List
-from ..models.payment_schema import Payment, PaymentCreate
+from ..models.payment_schema import Payment, PaymentCreate,PaymentUpdate
 from ..services import payment_service
-import asyncio
 from app.utils.helpers import get_current_user
 
 router = APIRouter(prefix="/payments", tags=["payments"])
+
+@router.patch("/{payment_id}", response_model=Payment)
+async def update_payment(payment_id: str, payment_update: PaymentUpdate = Body(...), user_id: str = Depends(get_current_user)):
+    updated_payment = await payment_service.update_payment(payment_id, payment_update)
+    if not updated_payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    return updated_payment
 
 @router.get("/", response_model=List[Payment])
 async def list_payments(user_id: str = Depends(get_current_user)):

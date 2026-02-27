@@ -47,3 +47,14 @@ async def get_payment_stats():
         'pending': f'₹{pending:,.0f}',
         'overdue': f'₹{overdue:,.0f}',
     }
+
+
+async def update_payment(payment_id: str, payment_update) -> Optional[Payment]:
+    payment = await payments_collection.find_one({"id": payment_id})
+    if not payment:
+        return None
+    update_data = {k: v for k, v in payment_update.model_dump().items() if v is not None}
+    update_data["updatedAt"] = datetime.now(timezone.utc)
+    await payments_collection.update_one({"id": payment_id}, {"$set": update_data})
+    payment.update(update_data)
+    return Payment(**payment)

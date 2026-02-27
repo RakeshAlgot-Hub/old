@@ -30,15 +30,33 @@ async def get_limits(plan: Literal['free', 'pro', 'premium']):
     return {"data": limits}
 
 
+from fastapi import Body
+
 @router.post("/upgrade")
-async def upgrade_subscription(plan: Literal['free', 'pro', 'premium'], user_id: str = Depends(get_current_user)):
+async def upgrade_subscription(
+    payload: dict = Body(...),
+    user_id: str = Depends(get_current_user)
+):
+    plan = payload.get("plan")
+    if plan not in ["free", "pro", "premium"]:
+        raise HTTPException(status_code=400, detail="Invalid plan")
     sub = await SubscriptionService.update_subscription(user_id, plan)
     return {"data": sub.model_dump()}
 
 
 # Razorpay: Create Checkout Session
+from fastapi import Body
+
 @router.post("/create-checkout-session")
-async def create_checkout_session(request: Request, plan: Literal['pro', 'premium'], user_id: str = Depends(get_current_user)):
+async def create_checkout_session(
+    payload: dict = Body(...),
+    user_id: str = Depends(get_current_user)
+):
+    plan = payload.get("plan")
+    if plan not in ["free", "pro", "premium"]:
+        raise HTTPException(status_code=400, detail="Invalid plan")
+    if plan == 'free':
+        raise HTTPException(status_code=400, detail="Free plan does not require payment.")
     plan_limits = SubscriptionService.get_plan_limits(plan)
     amount = plan_limits['price'] * 100
     currency = 'INR'
