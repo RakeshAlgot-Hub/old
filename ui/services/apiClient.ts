@@ -37,67 +37,11 @@ interface RequestOptions {
   requiresAuth?: boolean;
 }
 
-let isRefreshing = false;
-let refreshPromise: Promise<string> | null = null;
-
-async function refreshAccessToken(): Promise<string> {
-  if (isRefreshing && refreshPromise) {
-    return refreshPromise;
-  }
-
-  isRefreshing = true;
-  refreshPromise = (async () => {
-    try {
-      const refreshToken = await tokenStorage.getRefreshToken();
-
-      if (!refreshToken) {
-        throw new Error('No refresh token available');
-      }
-
-      const response = await fetch(`${BASE_URL}/auth/refresh`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({ refreshToken }),
-      });
-
-      if (!response.ok) {
-        await tokenStorage.clearTokens();
-        const error: ApiError = {
-          code: 'UNAUTHORIZED',
-          message: 'Session expired. Please login again.',
-          details: { status: response.status },
-        };
-        throw error;
-      }
-
-      const responseData = await response.json();
-      const { accessToken, expiresAt } = responseData.data || responseData;
-
-      await tokenStorage.setAccessToken(accessToken);
-      await tokenStorage.setTokenExpiry(expiresAt);
-
-      return accessToken;
-    } catch (error) {
-      await tokenStorage.clearTokens();
-      throw error;
-    } finally {
-      isRefreshing = false;
-      refreshPromise = null;
-    }
-  })();
-
-  return refreshPromise;
-}
-
 async function request<T>(
   method: HttpMethod,
   endpoint: string,
   body?: any,
-  requiresAuth: boolean = false,
-  _isRetry: boolean = false
+  requiresAuth: boolean = false
 ): Promise<ApiResponse<T> | PaginatedResponse<T>> {
   try {
     const url = `${BASE_URL}${endpoint}`;
@@ -108,25 +52,9 @@ async function request<T>(
     };
 
     if (requiresAuth) {
-      const isValid = await tokenStorage.isTokenValid();
-
-      if (!isValid && !_isRetry) {
-        try {
-          const newToken = await refreshAccessToken();
-          headers['Authorization'] = `Bearer ${newToken}`;
-        } catch (refreshError) {
-          const error: ApiError = {
-            code: 'UNAUTHORIZED',
-            message: 'Authentication required. Please login again.',
-            details: { status: 401 },
-          };
-          throw error;
-        }
-      } else {
-        const token = await tokenStorage.getAccessToken();
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
-        }
+      const token = await tokenStorage.getAccessToken();
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
       }
     }
 
@@ -151,21 +79,6 @@ async function request<T>(
     }
 
     if (!response.ok) {
-      if (response.status === 401 && requiresAuth && !_isRetry) {
-        try {
-          const newToken = await refreshAccessToken();
-          return await request<T>(method, endpoint, body, requiresAuth, true);
-        } catch (refreshError) {
-          await tokenStorage.clearTokens();
-          const error: ApiError = {
-            code: 'UNAUTHORIZED',
-            message: 'Authentication required. Please login again.',
-            details: { status: 401 },
-          };
-          throw error;
-        }
-      }
-
       if (response.status === 401) {
         const error: ApiError = {
           code: 'UNAUTHORIZED',

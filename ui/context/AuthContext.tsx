@@ -25,27 +25,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const checkAuthStatus = async () => {
     try {
       const token = await tokenStorage.getAccessToken();
-      const refreshToken = await tokenStorage.getRefreshToken();
       const isValid = await tokenStorage.isTokenValid();
 
       if (token && isValid) {
         const response = await authService.getCurrentUser();
         setUser(response.data);
         setIsAuthenticated(true);
-      } else if (token && !isValid && refreshToken) {
-        try {
-          const response = await authService.getCurrentUser();
-          setUser(response.data);
-          setIsAuthenticated(true);
-        } catch (refreshError: any) {
-          if (refreshError?.code === 'UNAUTHORIZED') {
-            setIsAuthenticated(false);
-            setUser(null);
-            await tokenStorage.clearTokens();
-          } else {
-            throw refreshError;
-          }
-        }
       } else {
         setIsAuthenticated(false);
         setUser(null);
