@@ -1,19 +1,18 @@
 from app.models.tenant_schema import Tenant
 from app.models.bed_schema import BedUpdate
-from app.services.bed_service import update_bed_service
+from app.services.bed_service import BedService
 from app.database.mongodb import getCollection
-import uuid
 from datetime import datetime, timezone
 from bson import ObjectId
 from app.models.payment_schema import PaymentCreate
-from app.services.payment_service import create_payment
+from app.services.payment_service import PaymentService
 from app.models.tenant_schema import BillingConfig
 
+
+
+bed_service = BedService()
+payment_service = PaymentService()
 class TenantService:
-    async def is_property_owner(self, user_id: str, property_id: str) -> bool:
-        from app.database.mongodb import db
-        prop = await db["properties"].find_one({"_id": ObjectId(property_id), "ownerId": ObjectId(user_id)})
-        return prop is not None
 
     def __init__(self):
         self.collection = getCollection("tenants")
@@ -44,7 +43,7 @@ class TenantService:
             tenant_data["updatedAt"] = now
         # Set bed status to occupied if bedId is present
         if tenant_data.get("bedId"):
-            await update_bed_service(tenant_data["bedId"], BedUpdate(status="occupied"))
+            await bed_service.update_bed(tenant_data["bedId"], BedUpdate(status="occupied"))
         # Ensure billingConfig is present and stored
         billing_config = tenant_data.get("billingConfig")
         if billing_config:
@@ -67,7 +66,7 @@ class TenantService:
                 anchorDate=billing_config.anchorDate,
                 method=billing_config.method
             )
-            await create_payment(payment)
+            await payment_service.create_payment(payment)
 
         return Tenant(**tenant_data)
 
@@ -79,10 +78,10 @@ class TenantService:
         new_bed_id = tenant_data.get("bedId")
         if orig_bed_id and orig_bed_id != new_bed_id:
             # Set previous bed to available
-            await update_bed_service(orig_bed_id, BedUpdate(status="available"))
+            await bed_service.update_bed(orig_bed_id, BedUpdate(status="available"))
         if new_bed_id and orig_bed_id != new_bed_id:
             # Set new bed to occupied
-            await update_bed_service(new_bed_id, BedUpdate(status="occupied"))
+            await bed_service.update_bed(new_bed_id, BedUpdate(status="occupied"))
         # Ensure billingConfig is present and stored
         if "billingConfig" in tenant_data:
             tenant_data["billingConfig"] = tenant_data["billingConfig"] or None
@@ -98,6 +97,6 @@ class TenantService:
         doc = await self.collection.find_one({"_id": ObjectId(tenant_id)})
         bed_id = doc.get("bedId") if doc else None
         if bed_id:
-            await update_bed_service(bed_id, BedUpdate(status="available"))
+            await bed_service.update_bed(bed_id, BedUpdate(status="available"))
         await self.collection.delete_one({"_id": ObjectId(tenant_id)})
         return {"success": True, "tenantId": tenant_id}

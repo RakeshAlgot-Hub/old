@@ -40,122 +40,142 @@ interface RequestOptions {
   requiresAuth?: boolean;
 }
 
+async function refreshAccessToken() {
+  const refreshToken = await tokenStorage.getRefreshToken();
+  if (!refreshToken) return null;
+  try {
+    const response = await fetch(`${BASE_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({ refreshToken }),
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (data?.accessToken && data?.refreshToken && data?.expiresAt) {
+      await tokenStorage.setAccessToken(data.accessToken);
+      await tokenStorage.setRefreshToken(data.refreshToken);
+      await tokenStorage.setTokenExpiry(data.expiresAt);
+      return data.accessToken;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 async function request<T>(
   method: HttpMethod,
   endpoint: string,
   body?: any,
   requiresAuth: boolean = false
 ): Promise<ApiResponse<T> | PaginatedResponse<T>> {
-  try {
-    const url = `${BASE_URL}${endpoint}`;
-
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    };
-
-    if (requiresAuth) {
-      const token = await tokenStorage.getAccessToken();
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-    }
-
-    const config: RequestInit = {
-      method,
-      headers,
-    };
-
-    if (body && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
-      config.body = JSON.stringify(body);
-    }
-
-    const response = await fetch(url, config);
-
-    let responseData: any;
-    const contentType = response.headers.get('content-type');
-
-    if (contentType && contentType.includes('application/json')) {
-      responseData = await response.json();
-    } else {
-      responseData = await response.text();
-    }
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        const error: ApiError = {
-          code: 'UNAUTHORIZED',
-          message: 'Authentication required. Please login again.',
-          details: { status: 401 },
-        };
-        throw error;
-      }
-
-      if (response.status === 403) {
-        const error: ApiError = {
-          code: responseData?.code || 'FORBIDDEN',
-          message: responseData?.message || 'Access denied',
-          details: responseData?.details || { status: 403 },
-        };
-        throw error;
-      }
-
-      const error: ApiError = {
-        code: responseData?.code || 'API_ERROR',
-        message: responseData?.message || `HTTP ${response.status}: ${response.statusText}`,
-        details: responseData?.details || { status: response.status },
+  let triedRefresh = false;
+  while (true) {
+    try {
+      const url = `${BASE_URL}${endpoint}`;
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
       };
-      throw error;
-    }
-
-    if (typeof responseData === 'string') {
+      if (requiresAuth) {
+        const token = await tokenStorage.getAccessToken();
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+      }
+      const config: RequestInit = {
+        method,
+        headers,
+      };
+      if (body && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
+        config.body = JSON.stringify(body);
+      }
+      const response = await fetch(url, config);
+      let responseData: any;
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        responseData = await response.json();
+      } else {
+        responseData = await response.text();
+      }
+      if (!response.ok) {
+        if (response.status === 401 && requiresAuth && !triedRefresh) {
+          const newToken = await refreshAccessToken();
+          if (newToken) {
+            triedRefresh = true;
+            continue; // retry with new token
+          }
+        }
+        if (response.status === 401) {
+          const error: ApiError = {
+            code: 'UNAUTHORIZED',
+            message: 'Authentication required. Please login again.',
+            details: { status: 401 },
+          };
+          throw error;
+        }
+        if (response.status === 403) {
+          const error: ApiError = {
+            code: responseData?.code || 'FORBIDDEN',
+            message: responseData?.message || 'Access denied',
+            details: responseData?.details || { status: 403 },
+          };
+          throw error;
+        }
+        const error: ApiError = {
+          code: responseData?.code || 'API_ERROR',
+          message: responseData?.message || `HTTP ${response.status}: ${response.statusText}`,
+          details: responseData?.details || { status: response.status },
+        };
+        throw error;
+      }
+      if (typeof responseData === 'string') {
+        return {
+          data: responseData as T,
+          meta: {
+            timestamp: new Date().toISOString(),
+          },
+        } as ApiResponse<T>;
+      }
+      if (responseData.data && Array.isArray(responseData.data)) {
+        return {
+          data: responseData.data,
+          meta: responseData.meta || {
+            total: responseData.data.length,
+            page: 1,
+            pageSize: responseData.data.length,
+            hasMore: false,
+          },
+        } as PaginatedResponse<T>;
+      }
+      if (responseData.data) {
+        return {
+          data: responseData.data,
+          meta: responseData.meta || {
+            timestamp: new Date().toISOString(),
+          },
+        } as ApiResponse<T>;
+      }
       return {
-        data: responseData as T,
+        data: responseData,
         meta: {
           timestamp: new Date().toISOString(),
         },
       } as ApiResponse<T>;
+    } catch (error: any) {
+      if (error.code && error.message) {
+        throw error;
+      }
+      const apiError: ApiError = {
+        code: 'NETWORK_ERROR',
+        message: error.message || 'Network request failed',
+        details: { originalError: error },
+      };
+      throw apiError;
     }
-
-    if (responseData.data && Array.isArray(responseData.data)) {
-      return {
-        data: responseData.data,
-        meta: responseData.meta || {
-          total: responseData.data.length,
-          page: 1,
-          pageSize: responseData.data.length,
-          hasMore: false,
-        },
-      } as PaginatedResponse<T>;
-    }
-
-    if (responseData.data) {
-      return {
-        data: responseData.data,
-        meta: responseData.meta || {
-          timestamp: new Date().toISOString(),
-        },
-      } as ApiResponse<T>;
-    }
-
-    return {
-      data: responseData,
-      meta: {
-        timestamp: new Date().toISOString(),
-      },
-    } as ApiResponse<T>;
-
-  } catch (error: any) {
-    if (error.code && error.message) {
-      throw error;
-    }
-
-    const apiError: ApiError = {
-      code: 'NETWORK_ERROR',
-      message: error.message || 'Network request failed',
-      details: { originalError: error },
-    };
-    throw apiError;
   }
 }
 
@@ -270,8 +290,12 @@ export const tenantService = {
 };
 
 export const paymentService = {
-  async getPayments(): Promise<PaginatedResponse<Payment>> {
-    return await request<Payment>('GET', '/payments', undefined, true) as PaginatedResponse<Payment>;
+  async getPayments(propertyId?: string): Promise<PaginatedResponse<Payment>> {
+    let endpoint = '/payments';
+    if (propertyId) {
+      endpoint += `?propertyId=${encodeURIComponent(propertyId)}`;
+    }
+    return await request<Payment>('GET', endpoint, undefined, true) as PaginatedResponse<Payment>;
   },
 
   async getPaymentById(id: string): Promise<ApiResponse<Payment>> {
@@ -368,8 +392,12 @@ export const roomService = {
 };
 
 export const bedService = {
-  async getBeds(): Promise<PaginatedResponse<Bed>> {
-    return await request<Bed>('GET', '/beds', undefined, true) as PaginatedResponse<Bed>;
+  async getBeds(roomId?: string): Promise<PaginatedResponse<Bed>> {
+    let endpoint = '/beds';
+    if (roomId) {
+      endpoint += `?room_id=${encodeURIComponent(roomId)}`;
+    }
+    return await request<Bed>('GET', endpoint, undefined, true) as PaginatedResponse<Bed>;
   },
 
   async getBedById(id: string): Promise<ApiResponse<Bed>> {

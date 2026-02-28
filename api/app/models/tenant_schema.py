@@ -13,7 +13,7 @@ class Tenant(BaseModel):
     roomId: Optional[str] = None
     bedId: Optional[str] = None
     name: Optional[str] = None
-    email: Optional[str] = None
+    documentId: Optional[str] = None
     phone: Optional[str] = None
     rent: Optional[str] = None
     status: Optional[str] = None
@@ -27,7 +27,7 @@ class TenantCreate(BaseModel):
     roomId: Optional[str] = None
     bedId: Optional[str] = None
     name: Optional[str] = None
-    email: Optional[str] = None
+    documentId: Optional[str] = None
     phone: Optional[str] = None
     rent: Optional[str] = None
     status: Optional[str] = None
@@ -39,7 +39,7 @@ class TenantUpdate(BaseModel):
     roomId: Optional[str] = None
     bedId: Optional[str] = None
     name: Optional[str] = None
-    email: Optional[str] = None
+    documentId: Optional[str] = None
     phone: Optional[str] = None
     rent: Optional[str] = None
     status: Optional[str] = None

@@ -30,7 +30,7 @@ export default function AddTenantScreen() {
   const { selectedPropertyId } = useProperty();
 
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  const [documentId, setDocumentId] = useState('');
   const [phone, setPhone] = useState('');
   const [rent, setRent] = useState('');
   const [joinDate, setJoinDate] = useState(new Date().toISOString().split('T')[0]);
@@ -92,10 +92,10 @@ export default function AddTenantScreen() {
   const fetchBeds = async (roomId: string) => {
     try {
       setFetchingBeds(true);
-      const response = await bedService.getBeds();
+      const response = await bedService.getBeds(roomId);
       if (response.data) {
         const filteredBeds = response.data.filter(
-          b => b.roomId === roomId && b.status === 'available'
+          b => b.status === 'available'
         );
         setBeds(filteredBeds);
         setSelectedBed(null);
@@ -126,7 +126,7 @@ export default function AddTenantScreen() {
       pathname: '/add-payment',
       params: {
         name: name.trim(),
-        email: email.trim(),
+        documentId: documentId.trim(),
         phone: phone.trim(),
         rent: rentNum.toString(),
         joinDate,
@@ -140,7 +140,7 @@ export default function AddTenantScreen() {
   const isFormValid = () => {
     return (
       name.trim() &&
-      email.trim() &&
+      documentId.trim() &&
       phone.trim() &&
       rent &&
       joinDate &&
@@ -267,7 +267,7 @@ export default function AddTenantScreen() {
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={[styles.label, { color: colors.text.primary }]}>Email (optional)</Text>
+              <Text style={[styles.label, { color: colors.text.primary }]}>Document ID</Text>
               <TextInput
                 style={[
                   styles.input,
@@ -277,12 +277,11 @@ export default function AddTenantScreen() {
                     borderColor: colors.border.medium,
                   },
                 ]}
-                placeholder="e.g., john@example.com"
-                keyboardType="email-address"
+                placeholder="e.g., DOC123456"
                 autoCapitalize="none"
                 placeholderTextColor={colors.text.tertiary}
-                value={email}
-                onChangeText={setEmail}
+                value={documentId}
+                onChangeText={setDocumentId}
                 editable={!loading}
               />
             </View>

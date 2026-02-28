@@ -2,14 +2,12 @@ from app.models.room_schema import Room
 from app.database.mongodb import getCollection
 from datetime import datetime,timezone
 from bson import ObjectId
-from app.services.bed_service import create_bed_service
+from app.services.bed_service import BedService
 from app.models.bed_schema import BedCreate
+
+
+bed_service = BedService()
 class RoomService:
-    async def is_property_owner(self, user_id: str, property_id: str) -> bool:
-        from app.database.mongodb import db
-        print(f"Checking ownership for user_id: {user_id}, property_id: {property_id}")
-        prop = await db["properties"].find_one({"_id": ObjectId(property_id), "ownerId": ObjectId(user_id)})
-        return prop is not None
 
     def __init__(self):
         self.collection = getCollection("rooms")
@@ -49,9 +47,10 @@ class RoomService:
                 propertyId=property_id,
                 roomId=room_id,
                 bedNumber=str(i),
-                status="available"
+                status="available",
+                ownerId=room_data.get("ownerId")
             )
-            await create_bed_service(bed)
+            await bed_service.create_bed(bed)
         return Room(**room_data)
 
     async def update_room(self, room_id: str, room_data: dict):

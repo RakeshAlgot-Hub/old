@@ -20,6 +20,7 @@ class UserInDB(BaseModel):
     osVersion: Optional[str] = None
     appVersion: Optional[str] = None
     propertyLimit: int = 3
+    propertyIds: Optional[list[str]] = Field(default_factory=list)
 
 class UserOut(BaseModel):
     id: str

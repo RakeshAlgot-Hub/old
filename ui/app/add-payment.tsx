@@ -22,8 +22,7 @@ import type { Tenant, Payment } from '@/services/apiTypes';
 import EmptyState from '@/components/EmptyState';
 import DatePicker from '@/components/DatePicker';
 
-const PAYMENT_METHODS = ['Cash', 'UPI', 'Bank Transfer', 'Other'];
-export const PAYMENT_STATUSES = [
+const PAYMENT_STATUSES = [
   { value: 'paid', label: 'Paid' },
   { value: 'due', label: 'Due' },
   { value: 'overdue', label: 'Overdue' },
@@ -40,7 +39,7 @@ export default function AddPaymentScreen() {
   const { selectedPropertyId } = useProperty();
 
   const [name, setName] = useState(typeof params.name === 'string' ? params.name : '');
-  const [email, setEmail] = useState(typeof params.email === 'string' ? params.email : '');
+  const [documentId, setDocumentId] = useState(typeof params.documentId === 'string' ? params.documentId : '');
   const [phone, setPhone] = useState(typeof params.phone === 'string' ? params.phone : '');
   const [rent, setRent] = useState(typeof params.rent === 'string' ? params.rent : ''); // Rent remains unchanged
   const [joinDate, setJoinDate] = useState(typeof params.joinDate === 'string' ? params.joinDate : '');
@@ -50,8 +49,7 @@ export default function AddPaymentScreen() {
   const [amount, setAmount] = useState(params.rent || '');
     // Removed dueDate state
   const [paymentDate, setPaymentDate] = useState('');
-  const [method, setMethod] = useState('Cash');
-    const [status, setStatus] = useState<'paid' | 'due'>('paid');
+  const [status, setStatus] = useState<'paid' | 'due'>('paid');
   // Billing settings
     const [billingCycle, setBillingCycle] = useState<'monthly' | 'day-wise'>('monthly');
     // Set anchorDate to today's date by default, editable
@@ -59,15 +57,11 @@ export default function AddPaymentScreen() {
       const d = new Date();
       return d.toISOString().split('T')[0];
     }
-    const [anchorDate, setAnchorDate] = useState(() => {
-      if (params.joinDate && typeof params.joinDate === 'string') return params.joinDate;
-      return getTodayISO();
-    });
+    const [anchorDate, setAnchorDate] = useState(() => getTodayISO());
   const [autoGeneratePayments, setAutoGeneratePayments] = useState(true);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showMethodPicker, setShowMethodPicker] = useState(false);
   const [showStatusPicker, setShowStatusPicker] = useState(false);
   const [showFrequencyPicker, setShowFrequencyPicker] = useState(false);
 
@@ -112,7 +106,7 @@ export default function AddPaymentScreen() {
           roomId,
           bedId,
           name: typeof name === 'string' ? name.trim() : '',
-          email: typeof email === 'string' ? email.trim() : '',
+          documentId: typeof documentId === 'string' ? documentId.trim() : '',
           phone: typeof phone === 'string' ? phone.trim() : '',
           rent: rent,
           joinDate,
@@ -128,7 +122,6 @@ export default function AddPaymentScreen() {
           status,
           billingCycle,
           anchorDate: typeof anchorDate === 'string' ? anchorDate : (Array.isArray(anchorDate) ? anchorDate[0] : ''),
-          method,
         },
       });
       setLoading(false);
@@ -143,7 +136,6 @@ export default function AddPaymentScreen() {
   const isFormValid = () => {
     const baseValid =
       typeof amount === 'string' && amount.trim() &&
-      method &&
       status &&
       !isNaN(parseFloat(typeof amount === 'string' ? amount : '')) &&
       parseFloat(typeof amount === 'string' ? amount : '') > 0;
@@ -245,20 +237,6 @@ export default function AddPaymentScreen() {
                 <ChevronDown size={20} color={colors.text.tertiary} />
               </TouchableOpacity>
             </View>
-            {/* Payment Method */}
-            <View style={styles.inputContainer}>
-              <Text style={[styles.label, { color: colors.text.primary }]}>Payment Method *</Text>
-              <TouchableOpacity
-                style={[styles.pickerButton, { backgroundColor: colors.white, borderColor: colors.border.medium }]} 
-                onPress={() => setShowMethodPicker(true)}
-                activeOpacity={0.7}
-                disabled={loading}>
-                <Text style={[styles.pickerButtonText, { color: colors.text.primary }]}> 
-                  {method}
-                </Text>
-                <ChevronDown size={20} color={colors.text.tertiary} />
-              </TouchableOpacity>
-            </View>
             {/* Anchor Date */}
             <DatePicker
               value={typeof anchorDate === 'string' ? anchorDate : (Array.isArray(anchorDate) ? anchorDate[0] : '')}
@@ -266,7 +244,9 @@ export default function AddPaymentScreen() {
               label="Anchor Date"
               disabled={loading}
               required
+              restrictToLast30Days={true}
             />
+            <Text style={[styles.helperText, { color: colors.text.secondary, marginTop: 2 }]}>The anchor date is the starting point for your billing cycle. Payments will be scheduled based on this date.</Text>
             {/* Next Due Date (not editable, boxed) */}
             {/* Next Due Date removed from UI */}
             <TouchableOpacity
@@ -293,62 +273,6 @@ export default function AddPaymentScreen() {
       </KeyboardAvoidingView>
 
       {/* Tenant selection modal removed */}
-
-      <Modal
-        visible={showMethodPicker}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowMethodPicker(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContainer, { backgroundColor: colors.white }]}>
-            <View style={[styles.modalHeader, { borderBottomColor: colors.border.light }]}>
-              <Text style={[styles.modalTitle, { color: colors.text.primary }]}>
-                Select Payment Method
-              </Text>
-            </View>
-
-            <ScrollView style={styles.modalScrollView}>
-              {PAYMENT_METHODS.map((m, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[
-                    styles.modalOption,
-                    { borderBottomColor: colors.border.light },
-                  ]}
-                  onPress={() => {
-                    setMethod(m);
-                    setShowMethodPicker(false);
-                  }}
-                  activeOpacity={0.7}>
-                  <Text
-                    style={[
-                      styles.modalOptionText,
-                      {
-                        color:
-                          method === m ? colors.primary[500] : colors.text.primary,
-                        fontWeight:
-                          method === m
-                            ? typography.fontWeight.semibold
-                            : typography.fontWeight.regular,
-                      },
-                    ]}>
-                    {m}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            <TouchableOpacity
-              style={[styles.modalCloseButton, { borderTopColor: colors.border.light }]}
-              onPress={() => setShowMethodPicker(false)}
-              activeOpacity={0.7}>
-              <Text style={[styles.modalCloseButtonText, { color: colors.text.secondary }]}>
-                Cancel
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
 
       <Modal
         visible={showStatusPicker}
@@ -626,5 +550,9 @@ const styles = StyleSheet.create({
   modalCloseButtonText: {
     fontSize: typography.fontSize.md,
     fontWeight: typography.fontWeight.semibold,
+  },
+  helperText: {
+    fontSize: typography.fontSize.xs,
+    marginTop: spacing.xs,
   },
 });

@@ -14,6 +14,7 @@ from app.utils.rate_limit import limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from app.utils.exception_handlers import add_global_exception_handlers
+from app.middleware.user_context import UserContextMiddleware
 
 # Ensure 'static' directory exists
 static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
@@ -37,6 +38,7 @@ async def lifespan(app):
 
 
 app = FastAPI(lifespan=lifespan)
+app.add_middleware(UserContextMiddleware)
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 enforce_https = os.getenv("ENFORCE_HTTPS", "False").lower() == "true"
 if enforce_https:

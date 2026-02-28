@@ -7,6 +7,7 @@ class BedBase(BaseModel):
     roomId: str
     bedNumber: str
     status: Literal['available', 'occupied', 'maintenance'] = 'available'
+    ownerId: Optional[str] = None
 
 class BedCreate(BedBase):
     pass

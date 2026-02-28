@@ -35,7 +35,6 @@ export function PropertyProvider({ children }: { children: ReactNode }) {
         setSelectedPropertyId(propertiesData[0].id);
       }
     } catch (error) {
-      console.error('Error fetching properties:', error);
       setProperties([]);
       setSelectedPropertyId(null);
     } finally {

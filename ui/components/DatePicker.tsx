@@ -18,6 +18,7 @@ interface DatePickerProps {
   label: string;
   disabled?: boolean;
   required?: boolean;
+  restrictToLast30Days?: boolean;
 }
 
 export default function DatePicker({
@@ -26,12 +27,29 @@ export default function DatePicker({
   label,
   disabled = false,
   required = false,
+  restrictToLast30Days = false,
 }: DatePickerProps) {
   const { colors } = useTheme();
   const [showModal, setShowModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(
     value ? new Date(value) : new Date()
   );
+
+  // Calculate date range: today and 30 days before (if enabled)
+  let today: Date | undefined;
+  let minDate: Date | undefined;
+  if (restrictToLast30Days) {
+    today = new Date();
+    today.setHours(0, 0, 0, 0);
+    minDate = new Date(today);
+    minDate.setDate(today.getDate() - 29); // 30 days including today
+  }
+
+  // Helper to check if a date is in range
+  const isDateInRange = (date: Date) => {
+    if (!restrictToLast30Days) return true;
+    return date >= (minDate as Date) && date <= (today as Date);
+  };
 
   const formatDisplayDate = (dateString: string): string => {
     if (!dateString) return '';
@@ -51,6 +69,7 @@ export default function DatePicker({
     return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
   };
 
+  // Allow navigation to any month/year, but only enable selection for valid dates
   const handlePreviousMonth = () => {
     const newDate = new Date(selectedDate);
     newDate.setMonth(newDate.getMonth() - 1);
@@ -65,6 +84,7 @@ export default function DatePicker({
 
   const handleSelectDate = (day: number) => {
     const newDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), day);
+    if (!isDateInRange(newDate)) return;
     const isoString = newDate.toISOString();
     onChange(isoString);
     setShowModal(false);
@@ -103,28 +123,33 @@ export default function DatePicker({
             return <View key={`empty-${index}`} style={styles.dayCell} />;
           }
 
+          const cellDate = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), day);
           const isSelected = isSelectedMonth && currentValue?.getDate() === day;
+          const isDisabled = !isDateInRange(cellDate);
 
           return (
             <TouchableOpacity
               key={day}
-              style={[
-                styles.dayCell,
+              style={[styles.dayCell,
                 isSelected && {
                   backgroundColor: colors.primary[500],
                   borderRadius: radius.md,
                 },
+                isDisabled && { opacity: 0.3 }
               ]}
               onPress={() => handleSelectDate(day)}
-              activeOpacity={0.7}>
+              activeOpacity={isDisabled ? 1 : 0.7}
+              disabled={isDisabled}
+            >
               <Text
-                style={[
-                  styles.dayText,
+                style={[styles.dayText,
                   {
                     color: isSelected ? colors.white : colors.text.primary,
                     fontWeight: isSelected ? typography.fontWeight.bold : typography.fontWeight.regular,
                   },
-                ]}>
+                  isDisabled && { color: colors.text.tertiary }
+                ]}
+              >
                 {day}
               </Text>
             </TouchableOpacity>

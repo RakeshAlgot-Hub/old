@@ -22,7 +22,7 @@ import { Search, Filter, Phone, Mail, MapPin, Users } from 'lucide-react-native'
 import { spacing, typography, radius, shadows } from '@/theme';
 import { useTheme } from '@/context/ThemeContext';
 import { useProperty } from '@/context/PropertyContext';
-import { tenantService, roomService, bedService, paymentService } from '@/services/apiClient';
+import { tenantService, roomService, paymentService } from '@/services/apiClient';
 import type { Tenant, Room, Bed, Payment } from '@/services/apiTypes';
 
 export default function TenantsScreen() {
@@ -47,10 +47,9 @@ export default function TenantsScreen() {
     try {
       setLoading(true);
       setError(null);
-      const [tenantsRes, roomsRes, bedsRes, paymentsRes] = await Promise.all([
+      const [tenantsRes, roomsRes, paymentsRes] = await Promise.all([
         tenantService.getTenants(),
         roomService.getRooms(),
-        bedService.getBeds(),
         paymentService.getPayments(),
       ]);
 
@@ -63,11 +62,6 @@ export default function TenantsScreen() {
       if (roomsRes.data) {
         const filteredRooms = roomsRes.data.filter(r => r.propertyId === selectedPropertyId);
         setRooms(filteredRooms);
-      }
-
-      if (bedsRes.data) {
-        const filteredBeds = bedsRes.data.filter(b => b.propertyId === selectedPropertyId);
-        setBeds(filteredBeds);
       }
 
       if (paymentsRes.data) {
@@ -249,8 +243,7 @@ export default function TenantsScreen() {
                       <Text style={[styles.contactText, { color: colors.text.secondary }]}>{tenant.phone}</Text>
                     </View>
                     <View style={styles.contactItem}>
-                      <Mail size={14} color={colors.text.secondary} />
-                      <Text style={[styles.contactText, { color: colors.text.secondary }]}>{tenant.email}</Text>
+                      <Text style={[styles.contactText, { color: colors.text.secondary }]}>Document ID: {tenant.documentId}</Text>
                     </View>
                   </View>
                   </Card>

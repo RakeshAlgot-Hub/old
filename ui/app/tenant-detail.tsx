@@ -1,4 +1,3 @@
-import { PAYMENT_STATUSES } from './add-payment';
 import { useState, useCallback } from 'react';
 import {
   View,
@@ -22,12 +21,12 @@ import {
   MapPin,
   Wallet,
   Calendar,
-  Bed as BedIcon,
   Plus,
   Edit,
   CheckCircle,
   ChevronDown,
 } from 'lucide-react-native';
+import { Bed as BedIcon } from 'lucide-react-native';
 import { spacing, typography, radius, shadows } from '@/theme';
 import { useTheme } from '@/context/ThemeContext';
 import { tenantService, paymentService, roomService, bedService } from '@/services/apiClient';
@@ -46,7 +45,7 @@ export default function TenantDetailScreen() {
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [room, setRoom] = useState<Room | null>(null);
-  const [bed, setBed] = useState<Bed | null>(null);
+  const [beds, setBeds] = useState<Bed[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -84,14 +83,16 @@ export default function TenantDetailScreen() {
           setPayments(tenantPayments);
         }
 
-        if (bedsRes.data) {
-          const tenantBed = bedsRes.data.find(b => b.id === tenantRes.data.bedId);
-          setBed(tenantBed || null);
+        // Find the tenant's room
+        let tenantRoom: Room | null = null;
+        if (roomsRes.data && tenantRes.data.roomId) {
+          tenantRoom = roomsRes.data.find((r: Room) => r.id === tenantRes.data.roomId) || null;
+        }
+        setRoom(tenantRoom);
 
-          if (tenantBed && roomsRes.data) {
-            const tenantRoom = roomsRes.data.find(r => r.id === tenantBed.roomId);
-            setRoom(tenantRoom || null);
-          }
+        // Find all beds for lookup
+        if (bedsRes.data) {
+          setBeds(bedsRes.data);
         }
       }
     } catch (err: any) {
@@ -283,6 +284,12 @@ export default function TenantDetailScreen() {
 
   const { totalPaid, latestPayment, outstanding } = calculateFinancialSummary();
 
+  // Define bed in render scope
+  let bed: Bed | null = null;
+  if (tenant && tenant.bedId && beds.length > 0) {
+    bed = beds.find(b => b.id === tenant.bedId) || null;
+  }
+
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background.primary }]}
@@ -329,10 +336,7 @@ export default function TenantDetailScreen() {
 
               <View style={styles.contactSection}>
                 <View style={styles.contactItem}>
-                  <Mail size={16} color={colors.text.secondary} />
-                  <Text style={[styles.contactText, { color: colors.text.primary }]}>
-                    {tenant.email}
-                  </Text>
+                  <Text style={[styles.contactText, { color: colors.text.primary }]}>Document ID: {tenant.documentId}</Text>
                 </View>
                 <View style={styles.contactItem}>
                   <Phone size={16} color={colors.text.secondary} />
@@ -349,9 +353,7 @@ export default function TenantDetailScreen() {
                 {room && bed && (
                   <View style={styles.contactItem}>
                     <BedIcon size={16} color={colors.text.secondary} />
-                    <Text style={[styles.contactText, { color: colors.text.primary }]}>
-                      Room {room.roomNumber} - Bed {bed.bedNumber}
-                    </Text>
+                    <Text style={[styles.contactText, { color: colors.text.primary }]}>Room {room.roomNumber} - Bed {bed.bedNumber}</Text>
                   </View>
                 )}
               </View>
@@ -615,6 +617,7 @@ export default function TenantDetailScreen() {
                     editable={!editLoading}
                   />
                 </View>
+                <Text style={[styles.summaryLabel, { color: colors.text.secondary, marginTop: spacing.xs }]}>The anchor date is the starting point for your billing cycle. Payments will be scheduled based on this date.</Text>
               </View>
 
               <View style={[styles.toggleContainer, { backgroundColor: colors.white, borderColor: colors.border.medium }]}>

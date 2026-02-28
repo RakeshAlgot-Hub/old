@@ -39,7 +39,7 @@ export interface Tenant {
   roomId: string;
   bedId: string;
   name: string;
-  email: string;
+  documentId: string;
   phone: string;
   rent: string;
   joinDate: string;
@@ -128,17 +128,17 @@ export interface LoginResponse {
 
 export interface RegisterCredentials {
   name: string;
-  email: string;
+  documentId: string;
   password: string;
 }
 
 export interface RegisterResponse {
   message: string;
-  email: string;
+  documentId: string;
 }
 
 export interface VerifyOTPRequest {
-  email: string;
+  documentId: string;
   otp: string;
 }
 
@@ -147,7 +147,7 @@ export interface VerifyOTPResponse {
 }
 
 export interface ResendOTPRequest {
-  email: string;
+  documentId: string;
 }
 
 export interface ResendOTPResponse {
@@ -155,7 +155,7 @@ export interface ResendOTPResponse {
 }
 
 export interface ForgotPasswordRequest {
-  email: string;
+  documentId: string;
 }
 
 export interface ForgotPasswordResponse {
@@ -163,7 +163,7 @@ export interface ForgotPasswordResponse {
 }
 
 export interface ResetPasswordRequest {
-  email: string;
+  documentId: string;
   otp: string;
   newPassword: string;
 }
