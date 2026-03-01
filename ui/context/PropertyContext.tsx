@@ -83,9 +83,7 @@ export function PropertyProvider({ children }: { children: ReactNode }) {
       propertyStorage.setSelectedPropertyId(propertyId).catch(() => {
         // ignore storage errors
       });
-      prefetchPropertyData(propertyId).catch(() => {
-        // ignore warm-up failures
-      });
+      clearScreenCache(); // Clear cache when switching properties
     }
   };
 
