@@ -54,8 +54,6 @@
   },
   "overrides": {
     "glob": ">=11.0.0",
-    "rimraf": "^5.0.0",
-    "inflight": "$inflight",
-    "chromium-edge-launcher": "$chromium-edge-launcher"
+    "rimraf": "^5.0.0"
   }
 }
