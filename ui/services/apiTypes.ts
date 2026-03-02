@@ -44,6 +44,9 @@ export interface Tenant {
   rent: string;
   joinDate: string;
   billingConfig?: BillingConfig;
+  archived?: boolean;
+  archivedReason?: string;
+  archivedAt?: string;
   createdAt: string;
   updatedAt: string;
   roomNumber?: string;    // Enriched data from backend
@@ -90,6 +93,25 @@ export interface PlanLimits {
   properties: number;
   tenants: number;
   rooms: number;
+  price?: number;
+  priceText?: string;
+}
+
+export interface ArchivedResource {
+  id: string;
+  name?: string;
+  roomNumber?: string;
+  archivedAt: string;
+  expiresAt: string;
+  reason: string;
+}
+
+export interface ArchivedResourcesResponse {
+  total_archived: number;
+  properties: ArchivedResource[];
+  rooms: ArchivedResource[];
+  tenants: ArchivedResource[];
+  grace_period_days: number;
 }
 
 export interface ApiError {
@@ -211,6 +233,9 @@ export interface Room {
   floor: string;
   price: number;
   numberOfBeds: number;
+  active?: boolean;
+  archivedReason?: string;
+  archivedAt?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -221,6 +246,26 @@ export interface Bed {
   roomId: string;
   bedNumber: string;
   status: 'available' | 'occupied' | 'maintenance';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Staff {
+  id: string;
+  propertyId: string;
+  name: string;
+  role: 'cooker' | 'worker' | 'cleaner' | 'manager' | 'security' | 'maintenance' | 'assistant' | 'other';
+  mobileNumber: string;
+  address: string;
+  status: 'active' | 'inactive' | 'on_leave' | 'terminated';
+  joiningDate?: string;
+  salary?: number;
+  emergencyContact?: string;
+  emergencyContactNumber?: string;
+  notes?: string;
+  archived?: boolean;
+  archivedReason?: string;
+  archivedAt?: string;
   createdAt: string;
   updatedAt: string;
 }

@@ -12,7 +12,7 @@ from apscheduler.triggers.cron import CronTrigger
 import logging
 
 import os
-from app.routes import health, auth, property, room, tenant, bed, subscription, dashboard
+from app.routes import health, auth, property, room, tenant, bed, subscription, dashboard, staff
 from app.utils.rate_limit import limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -64,6 +64,13 @@ async def ensure_indexes():
     await db["beds"].create_index("propertyId")
     await db["beds"].create_index("status")
     logger.info("✓ Beds indexes created")
+    
+    # ============ STAFF COLLECTION ============
+    await db["staff"].create_index("propertyId")
+    await db["staff"].create_index("role")
+    await db["staff"].create_index("status")
+    await db["staff"].create_index([("propertyId", 1), ("archived", 1)])
+    logger.info("✓ Staff indexes created")
 
 
 @asynccontextmanager
@@ -153,6 +160,7 @@ app.include_router(property.router, prefix=API_PREFIX)
 app.include_router(room.router, prefix=API_PREFIX)
 app.include_router(tenant.router, prefix=API_PREFIX)
 app.include_router(bed.router, prefix=API_PREFIX)
+app.include_router(staff.router, prefix=API_PREFIX)
 app.include_router(payment.router, prefix=API_PREFIX)
 app.include_router(subscription.router, prefix=API_PREFIX)
 app.include_router(dashboard.router, prefix=API_PREFIX)

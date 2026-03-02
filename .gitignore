@@ -14,6 +14,7 @@ venv/
 env/
 .env
 .env.*
+!.env.example
 .pytest_cache/
 .mypy_cache/
 .coverage

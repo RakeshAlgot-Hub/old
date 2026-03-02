@@ -8,5 +8,8 @@ class Room(BaseModel):
     floor: str
     price: int
     numberOfBeds: int
+    active: bool = True
+    archivedReason: Optional[str] = None
+    archivedAt: Optional[str] = None
     createdAt: Optional[str] = None
     updatedAt: Optional[str] = None

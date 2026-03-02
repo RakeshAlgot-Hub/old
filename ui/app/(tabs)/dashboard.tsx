@@ -88,7 +88,12 @@ export default function DashboardScreen() {
       };
       const duePayments = dueRes.data || [];
       const overduePayments = overdueRes.data || [];
-      const warnings = warningsRes.data || null;
+      const warnings = warningsRes.data
+        ? {
+            ...warningsRes.data,
+            warnings: warningsRes.data.warnings || [],
+          }
+        : null;
 
       setDashboardData({
         stats,
@@ -164,28 +169,6 @@ export default function DashboardScreen() {
     );
   }
 
-  if (!selectedProperty) {
-    return (
-      <ScreenContainer edges={['top']}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}>
-          <View style={styles.header}>
-            <Text style={[styles.greeting, { color: colors.text.secondary }]}>Welcome back,</Text>
-            <Text style={[styles.ownerName, { color: colors.text.primary }]}>Property Owner</Text>
-          </View>
-          <EmptyState
-            icon={Building2}
-            title="No Properties Found"
-            subtitle="Create your first property to get started"
-            actionLabel="Create Property"
-            onActionPress={() => router.push('/property-form')}
-          />
-        </ScrollView>
-      </ScreenContainer>
-    );
-  }
-
   const totalBeds = dashboardData?.stats.totalBeds || 0;
   const occupiedBeds = dashboardData?.stats.occupiedBeds || 0;
   const occupancyRate = dashboardData?.stats.occupancyRate || 0;
@@ -240,93 +223,105 @@ export default function DashboardScreen() {
               <Text style={[styles.ownerName, { color: colors.text.primary }]}>Property Owner</Text>
             </View>
 
-            {quotaWarnings && quotaWarnings.warnings.length > 0 && (
-              quotaWarnings.warnings.map((warning, index) => (
-                <LimitBanner
-                  key={index}
-                  message={warning.message}
-                  onUpgrade={() => router.push('/subscription')}
-                />
-              ))
-            )}
+            {!selectedProperty ? (
+              <EmptyState
+                icon={Building2}
+                title="No Properties Found"
+                subtitle="Create your first property to start using dashboard features"
+                actionLabel="Create Property"
+                onActionPress={() => router.push('/property-form')}
+              />
+            ) : (
+              <>
+                {quotaWarnings?.warnings?.length > 0 && (
+                  quotaWarnings.warnings.map((warning, index) => (
+                    <LimitBanner
+                      key={index}
+                      message={warning.message}
+                      onUpgrade={() => router.push('/subscription')}
+                    />
+                  ))
+                )}
 
-            <View style={styles.statsGrid}>
-              {stats.map((stat, index) => (
-                <Card key={index} style={styles.statCard}>
-                  <View style={[styles.iconContainer, { backgroundColor: stat.color }]}>
-                    <stat.icon size={20} color={colors.white} />
-                  </View>
-                  <Text style={[styles.statValue, { color: colors.text.primary }]}>{stat.value}</Text>
-                  <Text style={[styles.statLabel, { color: colors.text.secondary }]}>{stat.label}</Text>
-                </Card>
-              ))}
-            </View>
-
-            <SubscriptionSummaryCard />
-
-            {dashboardData && dashboardData.duePayments.length > 0 && (
-              <View style={styles.section}>
-                <SectionHeader icon={Clock} iconColor={colors.primary[500]} title="Due Soon" />
-                {dashboardData.duePayments.map((payment, index) => (
-                  <Card key={index} style={styles.paymentCard}>
-                    <View style={styles.paymentRow}>
-                      <View style={styles.paymentInfo}>
-                        <Text style={[styles.paymentName, { color: colors.text.primary }]}>
-                          {payment.tenantName}
-                        </Text>
-                        <Text style={[styles.paymentRoom, { color: colors.text.secondary }]}>
-                          Room {payment.bed}
-                        </Text>
+                <View style={styles.statsGrid}>
+                  {stats.map((stat, index) => (
+                    <Card key={index} style={styles.statCard}>
+                      <View style={[styles.iconContainer, { backgroundColor: stat.color }]}>
+                        <stat.icon size={20} color={colors.white} />
                       </View>
-                      <View style={styles.paymentRight}>
-                        <Text style={[styles.paymentAmount, { color: colors.text.primary }]}>
-                          {payment.amount}
-                        </Text>
-                        <Text style={[styles.paymentDate, { color: colors.primary[500] }]}>
-                          {payment.dueDate}
-                        </Text>
-                      </View>
-                    </View>
-                  </Card>
-                ))}
-              </View>
-            )}
+                      <Text style={[styles.statValue, { color: colors.text.primary }]}>{stat.value}</Text>
+                      <Text style={[styles.statLabel, { color: colors.text.secondary }]}>{stat.label}</Text>
+                    </Card>
+                  ))}
+                </View>
 
-            {dashboardData && dashboardData.overduePayments.length > 0 && (
-              <View style={styles.section}>
-                <SectionHeader icon={AlertCircle} iconColor={colors.danger[500]} title="Overdue" />
-                {dashboardData.overduePayments.map((payment, index) => {
-                  const dueDate = new Date(payment.dueDate);
-                  const today = new Date();
-                  const diffTime = Math.abs(today.getTime() - dueDate.getTime());
-                  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                <SubscriptionSummaryCard />
 
-                  return (
-                    <Card key={index} style={styles.paymentCard}>
-                      <View style={styles.paymentRow}>
-                        <View style={styles.paymentInfo}>
-                          <Text style={[styles.paymentName, { color: colors.text.primary }]}>
-                            {payment.tenantName}
-                          </Text>
-                          <Text style={[styles.paymentRoom, { color: colors.text.secondary }]}>
-                            Room {payment.bed}
-                          </Text>
-                        </View>
-                        <View style={styles.paymentRight}>
-                          <Text style={[styles.paymentAmount, { color: colors.text.primary }]}>
-                            {payment.amount}
-                          </Text>
-                          <View style={[styles.overdueTag, { backgroundColor: colors.danger[100] }]}>
-                            <Text style={[styles.overdueText, { color: colors.danger[700] }]}>
-                              {diffDays} {diffDays === 1 ? 'day' : 'days'}
+                {dashboardData && dashboardData.duePayments.length > 0 && (
+                  <View style={styles.section}>
+                    <SectionHeader icon={Clock} iconColor={colors.primary[500]} title="Due Soon" />
+                    {dashboardData.duePayments.map((payment, index) => (
+                      <Card key={index} style={styles.paymentCard}>
+                        <View style={styles.paymentRow}>
+                          <View style={styles.paymentInfo}>
+                            <Text style={[styles.paymentName, { color: colors.text.primary }]}>
+                              {payment.tenantName}
+                            </Text>
+                            <Text style={[styles.paymentRoom, { color: colors.text.secondary }]}>
+                              Room {payment.bed}
+                            </Text>
+                          </View>
+                          <View style={styles.paymentRight}>
+                            <Text style={[styles.paymentAmount, { color: colors.text.primary }]}>
+                              {payment.amount}
+                            </Text>
+                            <Text style={[styles.paymentDate, { color: colors.primary[500] }]}>
+                              {payment.dueDate}
                             </Text>
                           </View>
                         </View>
-                      </View>
-                    </Card>
-                  );
-                })}
-              </View>
+                      </Card>
+                    ))}
+                  </View>
+                )}
+
+                {dashboardData && dashboardData.overduePayments.length > 0 && (
+                  <View style={styles.section}>
+                    <SectionHeader icon={AlertCircle} iconColor={colors.danger[500]} title="Overdue" />
+                    {dashboardData.overduePayments.map((payment, index) => {
+                      const dueDate = new Date(payment.dueDate);
+                      const today = new Date();
+                      const diffTime = Math.abs(today.getTime() - dueDate.getTime());
+                      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                      return (
+                        <Card key={index} style={styles.paymentCard}>
+                          <View style={styles.paymentRow}>
+                            <View style={styles.paymentInfo}>
+                              <Text style={[styles.paymentName, { color: colors.text.primary }]}>
+                                {payment.tenantName}
+                              </Text>
+                              <Text style={[styles.paymentRoom, { color: colors.text.secondary }]}>
+                                Room {payment.bed}
+                              </Text>
+                            </View>
+                            <View style={styles.paymentRight}>
+                              <Text style={[styles.paymentAmount, { color: colors.text.primary }]}>
+                                {payment.amount}
+                              </Text>
+                              <View style={[styles.overdueTag, { backgroundColor: colors.danger[100] }]}>
+                                <Text style={[styles.overdueText, { color: colors.danger[700] }]}>
+                                  {diffDays} {diffDays === 1 ? 'day' : 'days'}
+                                </Text>
+                              </View>
+                            </View>
+                          </View>
+                        </Card>
+                      );
+                    })}
+                  </View>
+                )}
+              </>
             )}
           </>
         )}

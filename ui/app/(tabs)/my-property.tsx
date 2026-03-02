@@ -17,7 +17,6 @@ import {
   ChevronRight,
   DoorOpen,
   Users,
-  Shield,
 } from 'lucide-react-native';
 import { spacing, typography, radius, shadows } from '@/theme';
 import { useTheme } from '@/context/ThemeContext';
@@ -50,13 +49,6 @@ export default function MyPropertyScreen() {
       description: 'Manage your staff members',
       color: colors.success[500],
       route: '/manage-staff',
-    },
-    {
-      icon: Shield,
-      title: 'Manage Teams',
-      description: 'Organize staff into teams',
-      color: colors.warning[500],
-      route: '/manage-teams',
     },
   ];
 

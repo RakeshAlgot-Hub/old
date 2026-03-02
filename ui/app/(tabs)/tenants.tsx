@@ -12,13 +12,14 @@ import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import ScreenContainer from '@/components/ScreenContainer';
 import StatusBadge from '@/components/StatusBadge';
+import ArchiveWarningModal from '@/components/ArchiveWarningModal';
 import Card from '@/components/Card';
 import EmptyState from '@/components/EmptyState';
 import Skeleton from '@/components/Skeleton';
 import ApiErrorCard from '@/components/ApiErrorCard';
 import FAB from '@/components/FAB';
 import UpgradeModal from '@/components/UpgradeModal';
-import { Search, Filter, Phone, Users } from 'lucide-react-native';
+import { Search, Filter, Phone, Users, Archive, Edit, Trash2 } from 'lucide-react-native';
 import { spacing, typography, radius, shadows } from '@/theme';
 import { useTheme } from '@/context/ThemeContext';
 import { useProperty } from '@/context/PropertyContext';
@@ -46,6 +47,11 @@ export default function TenantsScreen() {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 50;
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Archive Warning Modal
+  const [showArchiveWarning, setShowArchiveWarning] = useState(false);
+  const [selectedTenant, setSelectedTenant] = useState<any>(null);
+  const [warningAction, setWarningAction] = useState<'edit' | 'delete' | null>(null);
 
   const fetchRooms = useCallback(async () => {
     if (!selectedPropertyId) return;
@@ -180,6 +186,27 @@ export default function TenantsScreen() {
     router.push('/room-form');
   };
 
+  const handleEditTenant = (tenant: any) => {
+    if (tenant.archived === true) {
+      setSelectedTenant(tenant);
+      setWarningAction('edit');
+      setShowArchiveWarning(true);
+    } else {
+      router.push(`/tenant-detail?tenantId=${tenant.id}`);
+    }
+  };
+
+  const handleDeleteTenant = (tenant: any) => {
+    if (tenant.archived === true) {
+      setSelectedTenant(tenant);
+      setWarningAction('delete');
+      setShowArchiveWarning(true);
+    } else {
+      // Show delete confirmation (not implemented yet)
+      console.log('Delete tenant:', tenant);
+    }
+  };
+
   const getRoomInfo = (tenant: Tenant) => {
     // Show only room number
     if (tenant.roomNumber) {
@@ -204,26 +231,8 @@ export default function TenantsScreen() {
     );
   }
 
-  if (!selectedProperty) {
-    return (
-      <ScreenContainer edges={['top']}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}>
-          <EmptyState
-            icon={Users}
-            title="No Properties Found"
-            subtitle="Create your first property to get started"
-            actionLabel="Create Property"
-            onActionPress={() => router.push('/property-form')}
-          />
-        </ScrollView>
-      </ScreenContainer>
-    );
-  }
-
-  const showEmptyState = !loading && tenants.length === 0 && !error;
-  const showNoRoomsState = !loading && tenants.length === 0 && rooms.length === 0 && !error;
+  const showEmptyState = !!selectedProperty && !loading && tenants.length === 0 && !error;
+  const showNoRoomsState = !!selectedProperty && !loading && tenants.length === 0 && rooms.length === 0 && !error;
 
   return (
     <ScreenContainer edges={['top']}>
@@ -232,40 +241,42 @@ export default function TenantsScreen() {
         <Text style={[styles.headerCount, { color: colors.text.secondary }]}>{total} Total</Text>
       </View>
 
-      <View style={styles.searchContainer}>
-        <View style={[styles.searchBar, { backgroundColor: colors.white, borderColor: colors.border.medium }]}>
-          <Search size={20} color={colors.text.tertiary} />
-          <TextInput
-            style={[styles.searchInput, { color: colors.text.primary }]}
-            placeholder="Search by name, phone..."
-            placeholderTextColor={colors.text.tertiary}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
+      {selectedProperty && (
+        <View style={styles.searchContainer}>
+          <View style={[styles.searchBar, { backgroundColor: colors.white, borderColor: colors.border.medium }]}>
+            <Search size={20} color={colors.text.tertiary} />
+            <TextInput
+              style={[styles.searchInput, { color: colors.text.primary }]}
+              placeholder="Search by name, phone..."
+              placeholderTextColor={colors.text.tertiary}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+          </View>
+          <TouchableOpacity
+            style={[
+              styles.filterButton,
+              {
+                backgroundColor: selectedStatus !== 'all' ? colors.primary[100] : colors.primary[50],
+                borderColor: selectedStatus !== 'all' ? colors.primary[300] : colors.primary[100]
+              }
+            ]}
+            activeOpacity={0.7}
+            onPress={() => {
+              // Show status filter menu
+              const statusOptions = [
+                { label: 'All', value: 'all' },
+                { label: 'Paid', value: 'paid' },
+                { label: 'Due', value: 'due' },
+                { label: 'Overdue', value: 'overdue' }
+              ];
+              // You can use Alert for this or a custom modal
+              alert('Filter by payment status - Consider adding a modal for better UX');
+            }}>
+            <Filter size={20} color={selectedStatus !== 'all' ? colors.primary[700] : colors.primary[500]} />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          style={[
-            styles.filterButton,
-            {
-              backgroundColor: selectedStatus !== 'all' ? colors.primary[100] : colors.primary[50],
-              borderColor: selectedStatus !== 'all' ? colors.primary[300] : colors.primary[100]
-            }
-          ]}
-          activeOpacity={0.7}
-          onPress={() => {
-            // Show status filter menu
-            const statusOptions = [
-              { label: 'All', value: 'all' },
-              { label: 'Paid', value: 'paid' },
-              { label: 'Due', value: 'due' },
-              { label: 'Overdue', value: 'overdue' }
-            ];
-            // You can use Alert for this or a custom modal
-            alert('Filter by payment status - Consider adding a modal for better UX');
-          }}>
-          <Filter size={20} color={selectedStatus !== 'all' ? colors.primary[700] : colors.primary[500]} />
-        </TouchableOpacity>
-      </View>
+      )}
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -280,6 +291,14 @@ export default function TenantsScreen() {
         }>
         {error && selectedProperty ? (
           <ApiErrorCard error={error} onRetry={handleRetry} />
+        ) : !selectedProperty ? (
+          <EmptyState
+            icon={Users}
+            title="No Properties Found"
+            subtitle="Create your first property to start managing tenants"
+            actionLabel="Create Property"
+            onActionPress={() => router.push('/property-form')}
+          />
         ) : showNoRoomsState ? (
           <EmptyState
             icon={Users}
@@ -300,13 +319,13 @@ export default function TenantsScreen() {
           <>
             {tenants.map((tenant, index) => {
               return (
-                <TouchableOpacity
-                  key={index}
-                  onPress={() => router.push(`/tenant-detail?tenantId=${tenant.id}`)}
-                  activeOpacity={0.7}>
-                  <Card style={styles.tenantCard}>
+                <Card key={index} style={[styles.tenantCard, tenant.archived === true ? { opacity: 0.6 } : {}] as any}>
+                  <TouchableOpacity
+                    onPress={() => handleEditTenant(tenant)}
+                    activeOpacity={0.7}
+                    disabled={tenant.archived === true}>
                     <View style={styles.tenantHeader}>
-                      <View style={[styles.avatar, { backgroundColor: colors.primary[500] }]}>
+                      <View style={[styles.avatar, { backgroundColor: tenant.archived === true ? colors.neutral[200] : colors.primary[500] }]}>
                         <Text style={[styles.avatarText, { color: colors.white }]}>
                           {tenant.name
                             .split(' ')
@@ -315,9 +334,17 @@ export default function TenantsScreen() {
                         </Text>
                       </View>
                       <View style={styles.tenantInfo}>
-                        <Text style={[styles.tenantName, { color: colors.text.primary }]}>{tenant.name}</Text>
+                        <View style={styles.tenantNameRow}>
+                          <Text style={[styles.tenantName, { color: colors.text.primary }]}>{tenant.name}</Text>
+                          {tenant.archived === true && (
+                            <View style={[styles.archivedBadge, { backgroundColor: colors.warning[100] }]}>
+                              <Archive size={12} color={colors.warning[600]} />
+                              <Text style={[styles.archivedBadgeText, { color: colors.warning[600] }]}>Archived</Text>
+                            </View>
+                          )}
+                        </View>
                         <View style={styles.phoneRow}>
-                          <Phone size={13} color={colors.primary[500]} />
+                          <Phone size={13} color={tenant.archived === true ? colors.text.tertiary : colors.primary[500]} />
                           <Text style={[styles.phoneText, { color: colors.text.secondary }]}>{tenant.phone}</Text>
                         </View>
                       </View>
@@ -337,8 +364,28 @@ export default function TenantsScreen() {
                         <Text style={[styles.detailValue, { color: colors.text.primary }]}>{tenant.joinDate}</Text>
                       </View>
                     </View>
-                  </Card>
-                </TouchableOpacity>
+                  </TouchableOpacity>
+
+                  {tenant.archived !== true && (
+                    <View style={styles.actionsRow}>
+                      <TouchableOpacity
+                        style={[styles.actionButton, { backgroundColor: colors.primary[50], borderColor: colors.primary[200] }]}
+                        onPress={() => handleEditTenant(tenant)}
+                        activeOpacity={0.7}>
+                        <Edit size={16} color={colors.primary[600]} />
+                        <Text style={[styles.actionText, { color: colors.primary[600] }]}>Edit</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.actionButton, { backgroundColor: colors.danger[50], borderColor: colors.danger[200] }]}
+                        onPress={() => handleDeleteTenant(tenant)}
+                        activeOpacity={0.7}>
+                        <Trash2 size={16} color={colors.danger[600]} />
+                        <Text style={[styles.actionText, { color: colors.danger[600] }]}>Delete</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </Card>
               );
             })}
             
@@ -399,11 +446,22 @@ export default function TenantsScreen() {
           </>
         )}
       </ScrollView>
-      {!showNoRoomsState && <FAB onPress={handleFabPress} />}
+      {selectedProperty && !showNoRoomsState && <FAB onPress={handleFabPress} />}
       <UpgradeModal
         visible={showUpgradeModal}
         onClose={() => setShowUpgradeModal(false)}
         onSelectPlan={() => setShowUpgradeModal(false)}
+      />
+      <ArchiveWarningModal
+        visible={showArchiveWarning}
+        resourceName={selectedTenant?.name || 'Tenant'}
+        resourceType="tenant"
+        archivedReason={selectedTenant?.archivedReason}
+        action={warningAction}
+        onClose={() => {
+          setShowArchiveWarning(false);
+          setSelectedTenant(null);
+        }}
       />
     </ScreenContainer>
   );
@@ -541,5 +599,42 @@ const styles = StyleSheet.create({
   paginationText: {
     fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.semibold,
+  },
+  tenantNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  archivedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.sm,
+    gap: spacing.xs,
+  },
+  archivedBadgeText: {
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.semibold,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+  },
+  actionText: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semibold,
+    marginLeft: spacing.xs,
   },
 });

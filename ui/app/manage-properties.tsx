@@ -9,11 +9,12 @@ import {
 import { useRouter } from 'expo-router';
 import ScreenContainer from '@/components/ScreenContainer';
 import Card from '@/components/Card';
+import ArchiveWarningModal from '@/components/ArchiveWarningModal';
 import FAB from '@/components/FAB';
 import EmptyState from '@/components/EmptyState';
 import Skeleton from '@/components/Skeleton';
 import ApiErrorCard from '@/components/ApiErrorCard';
-import { ChevronLeft, Building2, MapPin, Trash2, Edit } from 'lucide-react-native';
+import { ChevronLeft, Building2, MapPin, Trash2, Edit, Archive } from 'lucide-react-native';
 import { spacing, typography, radius } from '@/theme';
 import { useTheme } from '@/context/ThemeContext';
 import { useProperty } from '@/context/PropertyContext';
@@ -22,6 +23,9 @@ export default function ManagePropertiesScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const { properties, loading, refreshProperties } = useProperty();
+  const [showArchiveWarning, setShowArchiveWarning] = useState(false);
+  const [selectedProperty, setSelectedProperty] = useState<any>(null);
+  const [warningAction, setWarningAction] = useState<'edit' | 'delete' | null>(null);
 
   useEffect(() => {
     refreshProperties();
@@ -29,6 +33,28 @@ export default function ManagePropertiesScreen() {
 
   const handleAddProperty = () => {
     router.push('/property-form');
+  };
+
+  const handleEditProperty = (property: any) => {
+    if (property.active === false) {
+      setSelectedProperty(property);
+      setWarningAction('edit');
+      setShowArchiveWarning(true);
+    } else {
+      // Navigate to edit screen (not implemented yet)
+      console.log('Edit property:', property);
+    }
+  };
+
+  const handleDeleteProperty = (property: any) => {
+    if (property.active === false) {
+      setSelectedProperty(property);
+      setWarningAction('delete');
+      setShowArchiveWarning(true);
+    } else {
+      // Show delete confirmation (not implemented yet)
+      console.log('Delete property:', property);
+    }
   };
 
   return (
@@ -62,9 +88,17 @@ export default function ManagePropertiesScreen() {
             <Card key={index} style={styles.propertyCard}>
               <View style={styles.propertyHeader}>
                 <View style={styles.propertyInfo}>
-                  <Text style={[styles.propertyName, { color: colors.text.primary }]}>
-                    {property.name}
-                  </Text>
+                  <View style={styles.nameRow}>
+                    <Text style={[styles.propertyName, { color: colors.text.primary }]}>
+                      {property.name}
+                    </Text>
+                    {property.active === false && (
+                      <View style={[styles.archivedBadge, { backgroundColor: colors.warning[100] }]}>
+                        <Archive size={12} color={colors.warning[600]} />
+                        <Text style={[styles.archivedBadgeText, { color: colors.warning[600] }]}>Archived</Text>
+                      </View>
+                    )}
+                  </View>
                   <View style={styles.addressRow}>
                     <MapPin size={14} color={colors.text.secondary} />
                     <Text style={[styles.addressText, { color: colors.text.secondary }]}>
@@ -77,6 +111,7 @@ export default function ManagePropertiesScreen() {
               <View style={styles.actionsRow}>
                 <TouchableOpacity
                   style={[styles.actionButton, { backgroundColor: colors.primary[50], borderColor: colors.primary[200] }]}
+                  onPress={() => handleEditProperty(property)}
                   activeOpacity={0.7}>
                   <Edit size={16} color={colors.primary[600]} />
                   <Text style={[styles.actionText, { color: colors.primary[600] }]}>Edit</Text>
@@ -84,6 +119,7 @@ export default function ManagePropertiesScreen() {
 
                 <TouchableOpacity
                   style={[styles.actionButton, { backgroundColor: colors.danger[50], borderColor: colors.danger[200] }]}
+                  onPress={() => handleDeleteProperty(property)}
                   activeOpacity={0.7}>
                   <Trash2 size={16} color={colors.danger[600]} />
                   <Text style={[styles.actionText, { color: colors.danger[600] }]}>Delete</Text>
@@ -95,6 +131,18 @@ export default function ManagePropertiesScreen() {
       </ScrollView>
 
       <FAB onPress={handleAddProperty} />
+
+      <ArchiveWarningModal
+        visible={showArchiveWarning}
+        resourceName={selectedProperty?.name || 'Property'}
+        resourceType="property"
+        archivedReason={selectedProperty?.archivedReason}
+        action={warningAction}
+        onClose={() => {
+          setShowArchiveWarning(false);
+          setSelectedProperty(null);
+        }}
+      />
     </ScreenContainer>
   );
 }
@@ -164,5 +212,23 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.semibold,
     marginLeft: spacing.xs,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  archivedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.sm,
+    gap: spacing.xs,
+  },
+  archivedBadgeText: {
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.semibold,
   },
 });

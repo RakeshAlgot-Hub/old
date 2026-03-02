@@ -53,33 +53,54 @@ async def get_tenant(request: Request, tenant_id: str):
 @router.post("/")
 @router.post("")
 async def create_tenant(request: Request, tenant: TenantCreate):
-    if not tenant.propertyId:
-        raise HTTPException(status_code=400, detail="propertyId is required")
-    property_ids = getattr(request.state, "property_ids", [])
-    if tenant.propertyId not in property_ids:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
-    
-    # Check subscription quota before creating tenant
-    user_id = getattr(request.state, "user_id", None)
-    await SubscriptionEnforcement.ensure_can_create_tenant(user_id, tenant.propertyId)
-    
-    created = await tenant_service.create_tenant(tenant.model_dump(exclude_unset=True))
-    return {"data": created.model_dump()}
+    try:
+        if not tenant.propertyId:
+            raise HTTPException(status_code=400, detail="propertyId is required")
+        property_ids = getattr(request.state, "property_ids", [])
+        if tenant.propertyId not in property_ids:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+        
+        # Check subscription quota before creating tenant
+        user_id = getattr(request.state, "user_id", None)
+        await SubscriptionEnforcement.ensure_can_create_tenant(user_id, tenant.propertyId)
+        
+        created = await tenant_service.create_tenant(tenant.model_dump(exclude_unset=True))
+        return {"data": created.model_dump()}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Error creating tenant. Please try again.")
 
 @router.patch("/{tenant_id}")
 async def patch_tenant(request: Request, tenant_id: str, tenant: TenantUpdate):
-    orig = await tenant_service.get_tenant(tenant_id)
-    property_ids = getattr(request.state, "property_ids", [])
-    if orig and orig.propertyId in property_ids:
-        updated = await tenant_service.update_tenant(tenant_id, tenant.model_dump(exclude_unset=True))
-        return {"data": updated.model_dump()} if updated else {"data": {}}
-    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    try:
+        orig = await tenant_service.get_tenant(tenant_id)
+        property_ids = getattr(request.state, "property_ids", [])
+        if orig and orig.propertyId in property_ids:
+            # Check if tenant is archived
+            await SubscriptionEnforcement.ensure_tenant_not_archived(tenant_id)
+            
+            updated = await tenant_service.update_tenant(tenant_id, tenant.model_dump(exclude_unset=True))
+            return {"data": updated.model_dump()} if updated else {"data": {}}
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Error updating tenant. Please try again.")
 
 @router.delete("/{tenant_id}")
 async def delete_tenant(request: Request, tenant_id: str):
-    orig = await tenant_service.get_tenant(tenant_id)
-    property_ids = getattr(request.state, "property_ids", [])
-    if orig and orig.propertyId in property_ids:
-        result = await tenant_service.delete_tenant(tenant_id)
-        return {"data": result}
-    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    try:
+        orig = await tenant_service.get_tenant(tenant_id)
+        property_ids = getattr(request.state, "property_ids", [])
+        if orig and orig.propertyId in property_ids:
+            # Check if tenant is archived
+            await SubscriptionEnforcement.ensure_tenant_not_archived(tenant_id)
+            
+            result = await tenant_service.delete_tenant(tenant_id)
+            return {"data": result}
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Error deleting tenant. Please try again.")

@@ -34,6 +34,9 @@ class Tenant(BaseModel):
     updatedAt: Optional[str] = None
     billingConfig: Optional[BillingConfig] = None
     autoGeneratePayments: Optional[bool] = True
+    archived: bool = False
+    archivedReason: Optional[str] = None
+    archivedAt: Optional[str] = None
 
 class TenantOut(BaseModel):
     """Response model for list/get tenants with enriched data"""
@@ -52,6 +55,9 @@ class TenantOut(BaseModel):
     updatedAt: Optional[str] = None
     billingConfig: Optional[BillingConfig] = None
     autoGeneratePayments: Optional[bool] = True
+    archived: bool = False
+    archivedReason: Optional[str] = None
+    archivedAt: Optional[str] = None
     # Enriched fields
     roomNumber: Optional[str] = None  # Avoid extra API call
     bedNumber: Optional[str] = None   # Avoid extra API call

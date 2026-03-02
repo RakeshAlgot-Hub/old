@@ -28,7 +28,7 @@ export function PropertyProvider({ children }: { children: ReactNode }) {
     try {
       setLoading(true);
       const response = await propertyService.getProperties();
-      const propertiesData = response.data || [];
+      const propertiesData = Array.isArray(response?.data) ? response.data : [];
       setProperties(propertiesData);
 
       if (propertiesData.length === 0) {

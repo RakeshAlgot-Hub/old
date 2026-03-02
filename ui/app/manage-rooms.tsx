@@ -11,11 +11,12 @@ import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import ScreenContainer from '@/components/ScreenContainer';
 import Card from '@/components/Card';
+import ArchiveWarningModal from '@/components/ArchiveWarningModal';
 import FAB from '@/components/FAB';
 import EmptyState from '@/components/EmptyState';
 import Skeleton from '@/components/Skeleton';
 import ApiErrorCard from '@/components/ApiErrorCard';
-import { ChevronLeft, DoorOpen, Bed, IndianRupee, Eye } from 'lucide-react-native';
+import { ChevronLeft, DoorOpen, Bed, IndianRupee, Eye, Archive, Trash2, Edit } from 'lucide-react-native';
 import { spacing, typography, radius } from '@/theme';
 import { useTheme } from '@/context/ThemeContext';
 import { useProperty } from '@/context/PropertyContext';
@@ -32,6 +33,9 @@ export default function ManageRoomsScreen() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showArchiveWarning, setShowArchiveWarning] = useState(false);
+  const [selectedRoom, setSelectedRoom] = useState<any>(null);
+  const [warningAction, setWarningAction] = useState<'edit' | 'delete' | null>(null);
 
   const fetchRooms = async () => {
     if (!selectedPropertyId) {
@@ -81,6 +85,26 @@ export default function ManageRoomsScreen() {
       return;
     }
     router.push('/room-form');
+  };
+
+  const handleEditRoom = (room: any) => {
+    if (room.active === false) {
+      setSelectedRoom(room);
+      setWarningAction('edit');
+      setShowArchiveWarning(true);
+    } else {
+      console.log('Edit room:', room);
+    }
+  };
+
+  const handleDeleteRoom = (room: any) => {
+    if (room.active === false) {
+      setSelectedRoom(room);
+      setWarningAction('delete');
+      setShowArchiveWarning(true);
+    } else {
+      console.log('Delete room:', room);
+    }
   };
 
   if (propertyLoading || loading) {
@@ -169,15 +193,23 @@ export default function ManageRoomsScreen() {
             </View>
 
             {rooms.map((room, index) => (
-              <Card key={index} style={styles.roomCard}>
+              <Card key={index} style={[styles.roomCard, room.active === false ? { opacity: 0.6 } : {}] as any}>
                 <View style={styles.roomHeader}>
-                  <View style={[styles.roomIconContainer, { backgroundColor: colors.primary[50] }]}>
-                    <DoorOpen size={24} color={colors.primary[500]} />
+                  <View style={[styles.roomIconContainer, { backgroundColor: room.active === false ? colors.neutral[100] : colors.primary[50] }]}>
+                    <DoorOpen size={24} color={room.active === false ? colors.text.tertiary : colors.primary[500]} />
                   </View>
                   <View style={styles.roomInfo}>
-                    <Text style={[styles.roomNumber, { color: colors.text.primary }]}>
-                      Room {room.roomNumber}
-                    </Text>
+                    <View style={styles.roomNameRow}>
+                      <Text style={[styles.roomNumber, { color: colors.text.primary }]}>
+                        Room {room.roomNumber}
+                      </Text>
+                      {room.active === false && (
+                        <View style={[styles.archivedBadge, { backgroundColor: colors.warning[100] }]}>
+                          <Archive size={12} color={colors.warning[600]} />
+                          <Text style={[styles.archivedBadgeText, { color: colors.warning[600] }]}>Archived</Text>
+                        </View>
+                      )}
+                    </View>
                     <Text style={[styles.roomFloor, { color: colors.text.secondary }]}>
                       Floor: {room.floor}
                     </Text>
@@ -214,15 +246,38 @@ export default function ManageRoomsScreen() {
 
                 <View style={[styles.divider, { backgroundColor: colors.border.light }]} />
 
-                <TouchableOpacity
-                  style={[styles.viewBedsButton, { backgroundColor: colors.primary[50], borderColor: colors.primary[200] }]}
-                  onPress={() => router.push(`/manage-beds?roomId=${room.id}`)}
-                  activeOpacity={0.7}>
-                  <Eye size={16} color={colors.primary[600]} />
-                  <Text style={[styles.viewBedsText, { color: colors.primary[600] }]}>
-                    View Beds
-                  </Text>
-                </TouchableOpacity>
+                <View style={styles.actionsContainer}>
+                  <TouchableOpacity
+                    style={[styles.viewBedsButton, { backgroundColor: colors.primary[50], borderColor: colors.primary[200] }]}
+                    onPress={() => router.push(`/manage-beds?roomId=${room.id}`)}
+                    activeOpacity={0.7}
+                    disabled={room.active === false}>
+                    <Eye size={16} color={room.active === false ? colors.text.tertiary : colors.primary[600]} />
+                    <Text style={[styles.viewBedsText, { color: room.active === false ? colors.text.tertiary : colors.primary[600] }]}>
+                      View Beds
+                    </Text>
+                  </TouchableOpacity>
+
+                  {room.active !== false && (
+                    <>
+                      <TouchableOpacity
+                        style={[styles.actionButton, { backgroundColor: colors.primary[50], borderColor: colors.primary[200] }]}
+                        onPress={() => handleEditRoom(room)}
+                        activeOpacity={0.7}>
+                        <Edit size={16} color={colors.primary[600]} />
+                        <Text style={[styles.actionText, { color: colors.primary[600] }]}>Edit</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.actionButton, { backgroundColor: colors.danger[50], borderColor: colors.danger[200] }]}
+                        onPress={() => handleDeleteRoom(room)}
+                        activeOpacity={0.7}>
+                        <Trash2 size={16} color={colors.danger[600]} />
+                        <Text style={[styles.actionText, { color: colors.danger[600] }]}>Delete</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </View>
               </Card>
             ))}
           </>
@@ -230,6 +285,18 @@ export default function ManageRoomsScreen() {
       </ScrollView>
 
       <FAB onPress={handleAddRoom} />
+
+      <ArchiveWarningModal
+        visible={showArchiveWarning}
+        resourceName={`Room ${selectedRoom?.roomNumber || ''}`}
+        resourceType="room"
+        archivedReason={selectedRoom?.archivedReason}
+        action={warningAction}
+        onClose={() => {
+          setShowArchiveWarning(false);
+          setSelectedRoom(null);
+        }}
+      />
     </ScreenContainer>
   );
 }
@@ -328,6 +395,44 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   viewBedsText: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semibold,
+    marginLeft: spacing.xs,
+  },
+  roomNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  archivedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.sm,
+    gap: spacing.xs,
+  },
+  archivedBadgeText: {
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.semibold,
+  },
+  actionsContainer: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  actionButton: {
+    flex: 1,
+    minWidth: '32%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+  },
+  actionText: {
     fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.semibold,
     marginLeft: spacing.xs,

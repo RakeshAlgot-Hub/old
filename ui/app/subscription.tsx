@@ -11,6 +11,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import ScreenContainer from '@/components/ScreenContainer';
 import Card from '@/components/Card';
 import UpgradeModal from '@/components/UpgradeModal';
+import ArchivedResourcesModal from '@/components/ArchivedResourcesModal';
 import Skeleton from '@/components/Skeleton';
 import ApiErrorCard from '@/components/ApiErrorCard';
 import {
@@ -21,11 +22,14 @@ import {
   MessageSquare,
   Check,
   Lock,
+  Archive,
+  AlertTriangle,
+  ChevronRight,
 } from 'lucide-react-native';
 import { spacing, typography, radius, shadows } from '@/theme';
 import { useTheme } from '@/context/ThemeContext';
 import { subscriptionService } from '@/services/apiClient';
-import type { Subscription, Usage, PlanLimits } from '@/services/apiTypes';
+import type { Subscription, Usage, PlanLimits, ArchivedResourcesResponse } from '@/services/apiTypes';
 import { cacheKeys, getScreenCache, setScreenCache } from '@/services/screenCache';
 
 type Plan = 'free' | 'pro' | 'premium';
@@ -56,6 +60,9 @@ export default function SubscriptionScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showArchivedResources, setShowArchivedResources] = useState(false);
+  const [archivedResources, setArchivedResources] = useState<ArchivedResourcesResponse | null>(null);
+  const [loadingArchived, setLoadingArchived] = useState(false);
 
   const fetchSubscriptionData = async () => {
     const cacheKey = cacheKeys.subscription();
@@ -108,10 +115,12 @@ export default function SubscriptionScreen() {
         },
       });
     } catch (err: any) {
-      if (err?.code === 'upgrade_required') {
+      console.error('Subscription fetch error:', err);
+      const errorMessage = err?.message || 'Failed to load subscription data. Please try again.';
+      setError(errorMessage);
+      
+      if (err?.code === 'SUBSCRIPTION_LIMIT_EXCEEDED' || err?.status === 402) {
         setShowUpgradeModal(true);
-      } else {
-        setError(err?.message || 'Failed to load subscription data');
       }
     } finally {
       setLoading(false);
@@ -128,15 +137,41 @@ export default function SubscriptionScreen() {
     fetchSubscriptionData();
   };
 
+  const fetchArchivedResources = async () => {
+    try {
+      setLoadingArchived(true);
+      const response = await subscriptionService.getArchivedResources();
+      setArchivedResources(response.data);
+      setShowArchivedResources(true);
+    } catch (err: any) {
+      console.error('Failed to fetch archived resources:', err);
+      setError('Could not load archived resources');
+    } finally {
+      setLoadingArchived(false);
+    }
+  };
+
   const handleSelectPlan = async (plan: Plan) => {
     try {
+      setLoading(true);
       const response = await subscriptionService.updateSubscription(plan);
       setSubscription(response.data);
 
       const limitsRes = await subscriptionService.getLimits(plan);
       setLimits(limitsRes.data);
+      
+      // Clear cache to force refresh  
+      setScreenCache(cacheKeys.subscription(), null);
+      setError(null);
+      
+      // Refresh archived resources
+      await fetchArchivedResources();
     } catch (err: any) {
+      const errorMessage = err?.message || 'Failed to update subscription. Please try again.';
+      setError(errorMessage);
       console.error('Failed to update subscription:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -283,9 +318,9 @@ export default function SubscriptionScreen() {
                     <MessageSquare size={20} color={colors.warning[500]} />
                   </View>
                   <View style={styles.limitInfo}>
-                    <Text style={[styles.limitLabel, { color: colors.text.secondary }]}>SMS Credits</Text>
+                    <Text style={[styles.limitLabel, { color: colors.text.secondary }]}>Rooms</Text>
                     <Text style={[styles.limitValue, { color: colors.text.primary }]}>
-                      {usage.smsCredits} / {formatLimit(limits.smsCredits)}
+                      {usage.rooms} / {formatLimit(limits.rooms)}
                     </Text>
                   </View>
                 </View>
@@ -294,7 +329,7 @@ export default function SubscriptionScreen() {
                     style={[
                       styles.progressFill,
                       {
-                        width: `${calculateProgressPercentage(usage.smsCredits, limits.smsCredits)}%`,
+                        width: `${calculateProgressPercentage(usage.rooms, limits.rooms)}%`,
                         backgroundColor: colors.warning[500],
                       },
                     ]}
@@ -314,6 +349,32 @@ export default function SubscriptionScreen() {
                 </TouchableOpacity>
               )}
             </View>
+
+            {currentPlan !== 'free' && archivedResources && (archivedResources.properties.length > 0 || archivedResources.rooms.length > 0 || archivedResources.tenants.length > 0) && (
+              <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Archived Resources</Text>
+                <Card style={[styles.archivedCard, { borderLeftColor: colors.warning[500] }] as any}>
+                  <View style={styles.archivedCardContent}>
+                    <View style={styles.archivedInfo}>
+                      <AlertTriangle size={20} color={colors.warning[500]} />
+                      <View style={styles.archivedText}>
+                        <Text style={[styles.archivedCount, { color: colors.text.primary }]}>
+                          {archivedResources.total_archived} resource{archivedResources.total_archived !== 1 ? 's' : ''} archived
+                        </Text>
+                        <Text style={[styles.archivedSubtext, { color: colors.text.secondary }]}>
+                          Recovery available for {archivedResources.grace_period_days} days
+                        </Text>
+                      </View>
+                    </View>
+                    <TouchableOpacity
+                      onPress={fetchArchivedResources}
+                      activeOpacity={0.7}>
+                      <ChevronRight size={20} color={colors.primary[500]} />
+                    </TouchableOpacity>
+                  </View>
+                </Card>
+              </View>
+            )}
 
             <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Compare Plans</Text>
@@ -358,7 +419,7 @@ export default function SubscriptionScreen() {
                         <View style={styles.featureRow}>
                           <Check size={16} color={colors.success[500]} />
                           <Text style={[styles.featureText, { color: colors.text.primary }]}>
-                            {formatLimit(plan.limits.smsCredits)} SMS {plan.limits.smsCredits === 999 ? 'credits' : 'credits/month'}
+                            {formatLimit(plan.limits.rooms)} {plan.limits.rooms === 999 ? 'rooms' : plan.limits.rooms === 1 ? 'room' : 'rooms'} per property
                           </Text>
                         </View>
                       </View>
@@ -381,6 +442,17 @@ export default function SubscriptionScreen() {
         visible={showUpgradeModal}
         onClose={() => setShowUpgradeModal(false)}
         onSelectPlan={handleSelectPlan}
+      />
+
+      <ArchivedResourcesModal
+        visible={showArchivedResources}
+        archivedData={archivedResources}
+        loading={loadingArchived}
+        onClose={() => setShowArchivedResources(false)}
+        onUpgrade={() => {
+          setShowArchivedResources(false);
+          setShowUpgradeModal(true);
+        }}
       />
     </ScreenContainer>
   );
@@ -582,4 +654,30 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.semibold,
   },
-});
+  archivedCard: {
+    borderLeftWidth: 4,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+  },
+  archivedCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  archivedInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  archivedText: {
+    marginLeft: spacing.md,
+    flex: 1,
+  },
+  archivedCount: {
+    fontSize: typography.fontSize.md,
+    fontWeight: typography.fontWeight.semibold,
+  },
+  archivedSubtext: {
+    fontSize: typography.fontSize.sm,
+    marginTop: spacing.xs,
+  },});

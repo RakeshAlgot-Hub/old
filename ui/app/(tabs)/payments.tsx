@@ -76,6 +76,9 @@ export default function PaymentsScreen() {
 
   const fetchPayments = async () => {
     if (!selectedPropertyId) {
+      setPayments([]);
+      setTotal(0);
+      setError(null);
       setIsInitialLoad(false);
       setIsRefreshing(false);
       return;
@@ -108,11 +111,13 @@ export default function PaymentsScreen() {
       setTotal(response.meta?.total || data.length);
       setScreenCache(cacheKey, response);
     } catch (err: any) {
+      console.error('Error fetching payments:', err);
       if (err?.code === 'upgrade_required') {
         setShowUpgradeModal(true);
       } else {
         setError(err?.message || 'Failed to load payments');
       }
+      setPayments([]);
     } finally {
       setIsInitialLoad(false);
       setIsRefreshing(false);
@@ -132,9 +137,9 @@ export default function PaymentsScreen() {
     }, [selectedPropertyId, propertyLoading])
   );
 
-  // Refetch payments when month changes
+  // Refetch payments when month changes (and resolve empty-property initial state)
   useEffect(() => {
-    if (selectedPropertyId && !propertyLoading) {
+    if (!propertyLoading) {
       fetchPayments();
     }
   }, [monthKey, selectedPropertyId, propertyLoading]);
@@ -179,38 +184,47 @@ export default function PaymentsScreen() {
   };
 
   const computeStats = () => {
-    const collected = payments
-      .filter((p) => p.status === 'paid')
-      .reduce((sum, p) => {
-        const amount = typeof p.amount === 'string'
-          ? parseFloat(p.amount.replace(/[^0-9]/g, ''))
-          : p.amount;
-        return sum + amount;
-      }, 0);
+    try {
+      const collected = payments
+        .filter((p) => p.status === 'paid')
+        .reduce((sum, p) => {
+          const amount = typeof p.amount === 'string'
+            ? parseFloat(p.amount.replace(/[^0-9]/g, ''))
+            : p.amount;
+          return sum + (isNaN(amount) ? 0 : amount);
+        }, 0);
 
-    const pending = payments
-      .filter((p) => p.status === 'due')
-      .reduce((sum, p) => {
-        const amount = typeof p.amount === 'string'
-          ? parseFloat(p.amount.replace(/[^0-9]/g, ''))
-          : p.amount;
-        return sum + amount;
-      }, 0);
+      const pending = payments
+        .filter((p) => p.status === 'due')
+        .reduce((sum, p) => {
+          const amount = typeof p.amount === 'string'
+            ? parseFloat(p.amount.replace(/[^0-9]/g, ''))
+            : p.amount;
+          return sum + (isNaN(amount) ? 0 : amount);
+        }, 0);
 
-    const overdue = payments
-      .filter((p) => p.status === 'overdue')
-      .reduce((sum, p) => {
-        const amount = typeof p.amount === 'string'
-          ? parseFloat(p.amount.replace(/[^0-9]/g, ''))
-          : p.amount;
-        return sum + amount;
-      }, 0);
+      const overdue = payments
+        .filter((p) => p.status === 'overdue')
+        .reduce((sum, p) => {
+          const amount = typeof p.amount === 'string'
+            ? parseFloat(p.amount.replace(/[^0-9]/g, ''))
+            : p.amount;
+          return sum + (isNaN(amount) ? 0 : amount);
+        }, 0);
 
-    return {
-      collected: `₹${collected.toLocaleString()}`,
-      pending: `₹${pending.toLocaleString()}`,
-      overdue: `₹${overdue.toLocaleString()}`,
-    };
+      return {
+        collected: `₹${collected.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
+        pending: `₹${pending.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
+        overdue: `₹${overdue.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
+      };
+    } catch (error) {
+      console.error('Error computing stats:', error);
+      return {
+        collected: '₹0',
+        pending: '₹0',
+        overdue: '₹0',
+      };
+    }
   };
 
   const getStatusIcon = (status: string) => {
@@ -224,7 +238,7 @@ export default function PaymentsScreen() {
     }
   };
 
-  if (propertyLoading || isInitialLoad) {
+  if (propertyLoading || (isInitialLoad && !!selectedPropertyId)) {
     return (
       <ScreenContainer edges={['top']}>
         <View style={styles.header}>
@@ -245,24 +259,6 @@ export default function PaymentsScreen() {
     );
   }
 
-  if (!selectedProperty) {
-    return (
-      <ScreenContainer edges={['top']}>
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}>
-          <EmptyState
-            icon={Building2}
-            title="No Properties Found"
-            subtitle="Create your first property to get started"
-            actionLabel="Create Property"
-            onActionPress={() => router.push('/property-form')}
-          />
-        </ScrollView>
-      </ScreenContainer>
-    );
-  }
-
   const stats = computeStats();
 
   return (
@@ -274,36 +270,37 @@ export default function PaymentsScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Modern Month Navigator */}
-      <View style={[styles.monthNavigator, { backgroundColor: colors.background.secondary, borderColor: colors.border.light }]}>
-        <TouchableOpacity
-          onPress={handlePreviousMonth}
-          style={[styles.monthNavButton, { backgroundColor: colors.primary[50] }]}
-          activeOpacity={0.7}
-          disabled={isRefreshing}
-        >
-          <ChevronLeft size={24} color={colors.primary[500]} />
-        </TouchableOpacity>
-        
-        <View style={styles.monthDisplay}>
-          <Calendar size={18} color={colors.primary[500]} />
-          <Text style={[styles.monthYearText, { color: colors.text.primary }]}>
-            {monthYearString}
-          </Text>
-          {isRefreshing && (
-            <ActivityIndicator size="small" color={colors.primary[500]} style={styles.monthLoader} />
-          )}
-        </View>
+      {selectedProperty && (
+        <View style={[styles.monthNavigator, { backgroundColor: colors.background.secondary, borderColor: colors.border.light }]}>
+          <TouchableOpacity
+            onPress={handlePreviousMonth}
+            style={[styles.monthNavButton, { backgroundColor: colors.primary[50] }]}
+            activeOpacity={0.7}
+            disabled={isRefreshing}
+          >
+            <ChevronLeft size={24} color={colors.primary[500]} />
+          </TouchableOpacity>
+          
+          <View style={styles.monthDisplay}>
+            <Calendar size={18} color={colors.primary[500]} />
+            <Text style={[styles.monthYearText, { color: colors.text.primary }]}>
+              {monthYearString}
+            </Text>
+            {isRefreshing && (
+              <ActivityIndicator size="small" color={colors.primary[500]} style={styles.monthLoader} />
+            )}
+          </View>
 
-        <TouchableOpacity
-          onPress={handleNextMonth}
-          style={[styles.monthNavButton, { backgroundColor: colors.primary[50] }]}
-          activeOpacity={0.7}
-          disabled={isRefreshing}
-        >
-          <ChevronRight size={24} color={colors.primary[500]} />
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity
+            onPress={handleNextMonth}
+            style={[styles.monthNavButton, { backgroundColor: colors.primary[50] }]}
+            activeOpacity={0.7}
+            disabled={isRefreshing}
+          >
+            <ChevronRight size={24} color={colors.primary[500]} />
+          </TouchableOpacity>
+        </View>
+      )}
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -318,6 +315,14 @@ export default function PaymentsScreen() {
         }>
         {error ? (
           <ApiErrorCard error={error} onRetry={handleRetry} />
+        ) : !selectedProperty ? (
+          <EmptyState
+            icon={Building2}
+            title="No Properties Found"
+            subtitle="Create your first property to start tracking payments"
+            actionLabel="Create Property"
+            onActionPress={() => router.push('/property-form')}
+          />
         ) : payments.length === 0 ? (
           <EmptyState
             icon={Wallet}
@@ -329,19 +334,19 @@ export default function PaymentsScreen() {
             <View style={styles.statsContainer}>
               <Card style={styles.statCard}>
                 <Text style={[styles.statLabel, { color: colors.text.secondary }]}>Collected</Text>
-                <Text style={[styles.statAmount, styles.collected, { color: colors.success[500] }]}>
+                <Text style={[styles.statAmount, { color: colors.success[500] }]}>
                   {stats.collected}
                 </Text>
               </Card>
               <Card style={styles.statCard}>
                 <Text style={[styles.statLabel, { color: colors.text.secondary }]}>Pending</Text>
-                <Text style={[styles.statAmount, styles.pending, { color: colors.primary[500] }]}>
+                <Text style={[styles.statAmount, { color: colors.primary[500] }]}>
                   {stats.pending}
                 </Text>
               </Card>
               <Card style={styles.statCard}>
                 <Text style={[styles.statLabel, { color: colors.text.secondary }]}>Overdue</Text>
-                <Text style={[styles.statAmount, styles.overdue, { color: colors.danger[500] }]}>
+                <Text style={[styles.statAmount, { color: colors.danger[500] }]}>
                   {stats.overdue}
                 </Text>
               </Card>
@@ -435,20 +440,19 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   statLabel: {
     fontSize: typography.fontSize.xs,
     marginBottom: spacing.sm,
+    fontWeight: typography.fontWeight.semibold,
   },
   statAmount: {
-    fontSize: typography.fontSize.lg,
+    fontSize: typography.fontSize.xl,
     fontWeight: typography.fontWeight.bold,
-  },
-  collected: {
-  },
-  pending: {
-  },
-  overdue: {
   },
   paymentsSection: {
     marginBottom: spacing.lg,

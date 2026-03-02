@@ -8,6 +8,7 @@ import {
   PlanLimits,
   Room,
   Bed,
+  Staff,
   ApiResponse,
   PaginatedResponse,
   LoginCredentials,
@@ -34,6 +35,7 @@ import {
   VerifyPaymentResponse,
   DashboardStats,
   QuotaWarningsResponse,
+  ArchivedResourcesResponse,
 } from './apiTypes';
 import { tokenStorage } from './tokenStorage';
 
@@ -517,6 +519,18 @@ export const subscriptionService = {
   async getQuotaWarnings(): Promise<ApiResponse<QuotaWarningsResponse>> {
     return await request<QuotaWarningsResponse>('GET', '/subscription/quota-warnings', undefined, true) as ApiResponse<QuotaWarningsResponse>;
   },
+
+  async getArchivedResources(): Promise<ApiResponse<ArchivedResourcesResponse>> {
+    return await request<ArchivedResourcesResponse>('GET', '/subscription/archived-resources', undefined, true) as ApiResponse<ArchivedResourcesResponse>;
+  },
+
+  async recoverArchivedResources(): Promise<ApiResponse<{ success: boolean; restored_resources: any }>> {
+    return await request<{ success: boolean; restored_resources: any }>('POST', '/subscription/recover-archived-resources', {}, true) as ApiResponse<{ success: boolean; restored_resources: any }>;
+  },
+
+  async cancelSubscription(): Promise<ApiResponse<Subscription>> {
+    return await request<Subscription>('POST', '/subscription/cancel', {}, true) as ApiResponse<Subscription>;
+  },
 };
 
 export const roomService = {
@@ -585,6 +599,58 @@ export const bedService = {
 
   async deleteBed(id: string): Promise<ApiResponse<{ success: boolean }>> {
     return await request<{ success: boolean }>('DELETE', `/beds/${id}`, undefined, true) as ApiResponse<{ success: boolean }>;
+  },
+};
+
+export const staffService = {
+  async getStaff(propertyId?: string, search?: string, role?: string, status?: string, page: number = 1, pageSize: number = 50): Promise<PaginatedResponse<Staff>> {
+    let endpoint = '/staff?';
+    const params: string[] = [];
+    
+    if (propertyId) params.push(`property_id=${encodeURIComponent(propertyId)}`);
+    if (search) params.push(`search=${encodeURIComponent(search)}`);
+    if (role) params.push(`role=${encodeURIComponent(role)}`);
+    if (status) params.push(`status=${encodeURIComponent(status)}`);
+    params.push(`page=${page}`);
+    params.push(`page_size=${pageSize}`);
+    
+    endpoint += params.join('&');
+    return await request<Staff>('GET', endpoint, undefined, true) as PaginatedResponse<Staff>;
+  },
+
+  async getStaffById(id: string): Promise<ApiResponse<Staff>> {
+    return await request<Staff>('GET', `/staff/${id}`, undefined, true) as ApiResponse<Staff>;
+  },
+
+  async createStaff(data: Partial<Staff>): Promise<ApiResponse<Staff>> {
+    return await request<Staff>('POST', '/staff', data, true) as ApiResponse<Staff>;
+  },
+
+  async updateStaff(
+    id: string,
+    data: Partial<Staff>
+  ): Promise<ApiResponse<Staff>> {
+    return await request<Staff>('PATCH', `/staff/${id}`, data, true) as ApiResponse<Staff>;
+  },
+
+  async deleteStaff(id: string): Promise<ApiResponse<{ success: boolean }>> {
+    return await request<{ success: boolean }>('DELETE', `/staff/${id}`, undefined, true) as ApiResponse<{ success: boolean }>;
+  },
+
+  async getArchivedStaff(propertyId?: string, page: number = 1, pageSize: number = 50): Promise<PaginatedResponse<Staff>> {
+    let endpoint = '/staff/archived/list?';
+    const params: string[] = [];
+    
+    if (propertyId) params.push(`property_id=${encodeURIComponent(propertyId)}`);
+    params.push(`page=${page}`);
+    params.push(`page_size=${pageSize}`);
+    
+    endpoint += params.join('&');
+    return await request<Staff>('GET', endpoint, undefined, true) as PaginatedResponse<Staff>;
+  },
+
+  async restoreStaff(id: string): Promise<ApiResponse<Staff>> {
+    return await request<Staff>('POST', `/staff/${id}/restore`, {}, true) as ApiResponse<Staff>;
   },
 };
 

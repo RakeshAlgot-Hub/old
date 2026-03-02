@@ -2,6 +2,7 @@ from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from app.database.mongodb import db
 from bson import ObjectId
+from app.utils.ownership import build_owner_query
 from jose import jwt
 from fastapi import HTTPException, status
 from app.config import settings
@@ -53,7 +54,11 @@ class UserContextMiddleware(BaseHTTPMiddleware):
                 user = await db["users"].find_one({"_id": ObjectId(user_id)})
                 if user:
                     role = user.get("role")
-                    property_ids = user.get("propertyIds", [])
+                    owned_properties = await db["properties"].find(
+                        build_owner_query(user_id),
+                        {"_id": 1}
+                    ).to_list(length=None)
+                    property_ids = [str(doc["_id"]) for doc in owned_properties]
                     # Sanitize user object (remove sensitive fields)
                     user = {k: v for k, v in user.items() if k not in ["password", "hashed_password"]}
             except ExpiredSignatureError:
