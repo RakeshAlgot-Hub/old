@@ -46,20 +46,42 @@ class TenantService:
                 {
                     "$lookup": {
                         "from": "rooms",
-                        "localField": "roomId",
-                        "foreignField": "_id",
+                        "let": {"roomId": "$roomId"},
                         "as": "room_info",
-                        "pipeline": [{"$project": {"roomNumber": 1}}]
+                        "pipeline": [
+                            {
+                                "$match": {
+                                    "$expr": {
+                                        "$eq": [
+                                            {"$toString": "$_id"},
+                                            {"$toString": "$$roomId"}
+                                        ]
+                                    }
+                                }
+                            },
+                            {"$project": {"roomNumber": 1}}
+                        ]
                     }
                 },
                 # Lookup bed info
                 {
                     "$lookup": {
                         "from": "beds",
-                        "localField": "bedId",
-                        "foreignField": "_id",
+                        "let": {"bedId": "$bedId"},
                         "as": "bed_info",
-                        "pipeline": [{"$project": {"bedNumber": 1}}]
+                        "pipeline": [
+                            {
+                                "$match": {
+                                    "$expr": {
+                                        "$eq": [
+                                            {"$toString": "$_id"},
+                                            {"$toString": "$$bedId"}
+                                        ]
+                                    }
+                                }
+                            },
+                            {"$project": {"bedNumber": 1}}
+                        ]
                     }
                 },
                 # Project enriched fields

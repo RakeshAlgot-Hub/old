@@ -77,14 +77,22 @@ class PaymentService:
         }
 
     async def update_payment(self, payment_id: str, payment_update) -> Optional[Payment]:
+        from datetime import date as date_type
+        
         payment = await self.collection.find_one({"_id": ObjectId(payment_id)})
         if not payment:
             return None
         update_data = {k: v for k, v in payment_update.model_dump().items() if v is not None}
         
-        # Convert date object to ISO string for MongoDB storage
+        # Auto-set paidDate when status changes to "paid" (if not already provided)
+        if update_data.get("status") == "paid" and "paidDate" not in update_data:
+            update_data["paidDate"] = date_type.today().isoformat()
+        
+        # Convert date objects to ISO string for MongoDB storage
         if update_data.get("dueDate") and hasattr(update_data["dueDate"], 'isoformat'):
             update_data["dueDate"] = update_data["dueDate"].isoformat()
+        if update_data.get("paidDate") and hasattr(update_data["paidDate"], 'isoformat'):
+            update_data["paidDate"] = update_data["paidDate"].isoformat()
         
         update_data["updatedAt"] = datetime.now(timezone.utc)
         await self.collection.update_one({"_id": ObjectId(payment_id)}, {"$set": update_data})

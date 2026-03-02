@@ -88,3 +88,4 @@ class TenantUpdate(BaseModel):
     joinDate: Optional[str] = None
     checkoutDate: Optional[str] = None
     billingConfig: Optional[BillingConfig] = None
+    autoGeneratePayments: Optional[bool] = None

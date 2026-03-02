@@ -9,6 +9,7 @@ import {
   Modal,
   TextInput,
   Switch,
+  Alert,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -23,6 +24,8 @@ import {
   Calendar,
   Plus,
   Edit,
+  Pencil,
+  Trash2,
   CheckCircle,
   ChevronDown,
 } from 'lucide-react-native';
@@ -67,6 +70,11 @@ export default function TenantDetailScreen() {
   const [showFrequencyPicker, setShowFrequencyPicker] = useState(false);
   const [showAnchorDayPicker, setShowAnchorDayPicker] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
+  const [showEditTenantModal, setShowEditTenantModal] = useState(false);
+  const [editTenantName, setEditTenantName] = useState('');
+  const [editTenantPhone, setEditTenantPhone] = useState('');
+  const [editTenantRent, setEditTenantRent] = useState('');
+  const [tenantActionLoading, setTenantActionLoading] = useState(false);
 
   const fetchTenantData = async () => {
     if (!tenantId) {
@@ -144,7 +152,11 @@ export default function TenantDetailScreen() {
   };
 
   const openEditBillingModal = () => {
-    if (tenant?.billingConfig) {
+    if (!tenant) return;
+
+    setEditAutoGenerate(tenant.autoGeneratePayments === true);
+
+    if (tenant.billingConfig) {
       setEditFrequency(tenant.billingConfig.billingCycle);
       setEditAnchorDay(tenant.billingConfig.anchorDay || 1);
       setEditDayWiseStartDate(tenant.billingConfig.dayWiseStartDate || tenant.joinDate || '');
@@ -158,24 +170,33 @@ export default function TenantDetailScreen() {
     try {
       setEditLoading(true);
 
-      const billingConfig: BillingConfig = {
-        billingCycle: editFrequency,
-        anchorDay: editAnchorDay,
-        status: 'due' as BillingConfig['status'],
-      };
+      let nextBillingConfig: BillingConfig | null | undefined = tenant.billingConfig;
 
-      // For day-wise, include the start date
-      if (editFrequency === 'day-wise' && editDayWiseStartDate) {
-        (billingConfig as any).dayWiseStartDate = editDayWiseStartDate;
+      if (editAutoGenerate) {
+        const billingConfig: BillingConfig = {
+          billingCycle: editFrequency,
+          anchorDay: editAnchorDay,
+          status: tenant.billingConfig?.status || 'due',
+        };
+
+        if (editFrequency === 'day-wise' && editDayWiseStartDate) {
+          billingConfig.dayWiseStartDate = editDayWiseStartDate;
+        }
+
+        nextBillingConfig = billingConfig;
+      } else {
+        nextBillingConfig = undefined;
       }
 
       await tenantService.updateTenant(tenant.id, {
-        billingConfig,
+        autoGeneratePayments: editAutoGenerate,
+        billingConfig: editAutoGenerate ? nextBillingConfig : null,
       });
 
       setTenant({
         ...tenant,
-        billingConfig,
+        autoGeneratePayments: editAutoGenerate,
+        billingConfig: nextBillingConfig,
       });
 
       setShowEditBillingModal(false);
@@ -258,6 +279,76 @@ export default function TenantDetailScreen() {
     router.push(`/add-payment?tenantId=${tenantId}`);
   };
 
+  const openEditTenantModal = () => {
+    if (!tenant) return;
+    setEditTenantName(tenant.name || '');
+    setEditTenantPhone(tenant.phone || '');
+    setEditTenantRent(tenant.rent || '');
+    setShowEditTenantModal(true);
+  };
+
+  const handleUpdateTenant = async () => {
+    if (!tenant) return;
+
+    const name = editTenantName.trim();
+    const phone = editTenantPhone.trim();
+    const rent = editTenantRent.trim();
+
+    if (!name || !phone || !rent) {
+      Alert.alert('Validation', 'Name, phone, and rent are required.');
+      return;
+    }
+
+    if (!/^\d{10}$/.test(phone)) {
+      Alert.alert('Validation', 'Phone must be 10 digits.');
+      return;
+    }
+
+    try {
+      setTenantActionLoading(true);
+      const response = await tenantService.updateTenant(tenant.id, {
+        name,
+        phone,
+        rent,
+      });
+      if (response.data) {
+        setTenant((prev) => prev ? { ...prev, ...response.data } : prev);
+      }
+      setShowEditTenantModal(false);
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Failed to update tenant');
+    } finally {
+      setTenantActionLoading(false);
+    }
+  };
+
+  const handleDeleteTenant = () => {
+    if (!tenant) return;
+
+    Alert.alert(
+      'Delete Tenant',
+      `Are you sure you want to delete ${tenant.name}? This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setTenantActionLoading(true);
+              await tenantService.deleteTenant(tenant.id);
+              router.back();
+            } catch (err: any) {
+              Alert.alert('Error', err?.message || 'Failed to delete tenant');
+            } finally {
+              setTenantActionLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   if (loading) {
     return (
       <SafeAreaView
@@ -324,7 +415,22 @@ export default function TenantDetailScreen() {
           <ChevronLeft size={24} color={colors.text.primary} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text.primary }]}>Tenant Details</Text>
-        <View style={styles.placeholder} />
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={[styles.iconActionButton, { backgroundColor: colors.primary[50], borderColor: colors.primary[200] }]}
+            onPress={openEditTenantModal}
+            activeOpacity={0.7}
+            disabled={tenantActionLoading}>
+            <Pencil size={16} color={colors.primary[600]} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.iconActionButton, { backgroundColor: colors.danger[50], borderColor: colors.danger[200] }]}
+            onPress={handleDeleteTenant}
+            activeOpacity={0.7}
+            disabled={tenantActionLoading}>
+            <Trash2 size={16} color={colors.danger[600]} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
@@ -573,6 +679,85 @@ export default function TenantDetailScreen() {
           </>
         )}
       </ScrollView>
+
+      <Modal
+        visible={showEditTenantModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowEditTenantModal(false)}>
+        <SafeAreaView style={[styles.modalContainer, { backgroundColor: colors.background.primary }]}>
+          <View style={[styles.modalHeader, { backgroundColor: colors.white, borderBottomColor: colors.border.light }]}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => setShowEditTenantModal(false)}
+              activeOpacity={0.7}>
+              <ChevronLeft size={24} color={colors.text.primary} />
+            </TouchableOpacity>
+            <Text style={[styles.modalTitle, { color: colors.text.primary }]}>Edit Tenant</Text>
+            <View style={styles.placeholder} />
+          </View>
+
+          <ScrollView contentContainerStyle={styles.modalScrollContent}>
+            <View style={styles.formContainer}>
+              <View style={styles.inputContainer}>
+                <Text style={[styles.label, { color: colors.text.primary }]}>Name</Text>
+                <TextInput
+                  style={[styles.textInput, { backgroundColor: colors.white, borderColor: colors.border.medium, color: colors.text.primary }]}
+                  value={editTenantName}
+                  onChangeText={setEditTenantName}
+                  placeholder="Enter tenant name"
+                  placeholderTextColor={colors.text.tertiary}
+                  editable={!tenantActionLoading}
+                />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={[styles.label, { color: colors.text.primary }]}>Phone</Text>
+                <TextInput
+                  style={[styles.textInput, { backgroundColor: colors.white, borderColor: colors.border.medium, color: colors.text.primary }]}
+                  value={editTenantPhone}
+                  onChangeText={setEditTenantPhone}
+                  keyboardType="number-pad"
+                  maxLength={10}
+                  placeholder="Enter 10-digit phone"
+                  placeholderTextColor={colors.text.tertiary}
+                  editable={!tenantActionLoading}
+                />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={[styles.label, { color: colors.text.primary }]}>Rent</Text>
+                <TextInput
+                  style={[styles.textInput, { backgroundColor: colors.white, borderColor: colors.border.medium, color: colors.text.primary }]}
+                  value={editTenantRent}
+                  onChangeText={setEditTenantRent}
+                  placeholder="Enter rent amount"
+                  placeholderTextColor={colors.text.tertiary}
+                  editable={!tenantActionLoading}
+                />
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.submitButton,
+                  {
+                    backgroundColor: colors.primary[500],
+                    opacity: tenantActionLoading ? 0.6 : 1,
+                  },
+                ]}
+                onPress={handleUpdateTenant}
+                activeOpacity={0.8}
+                disabled={tenantActionLoading}>
+                {tenantActionLoading ? (
+                  <ActivityIndicator color={colors.white} size="small" />
+                ) : (
+                  <Text style={[styles.submitButtonText, { color: colors.white }]}>Save Tenant</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
 
       <Modal
         visible={showEditBillingModal}
@@ -835,6 +1020,19 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: typography.fontSize.lg,
     fontWeight: typography.fontWeight.bold,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  iconActionButton: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
   },
   placeholder: {
     width: 40,
@@ -1114,6 +1312,13 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.semibold,
     marginBottom: spacing.sm,
+  },
+  textInput: {
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    fontSize: typography.fontSize.md,
+    borderWidth: 1,
   },
   pickerButton: {
     flexDirection: 'row',

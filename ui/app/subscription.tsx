@@ -354,7 +354,7 @@ export default function SubscriptionScreen() {
                   <View style={styles.limitInfo}>
                     <Text style={[styles.limitLabel, { color: colors.text.secondary }]}>Staff (per property)</Text>
                     <Text style={[styles.limitValue, { color: colors.text.primary }]}>
-                      Max {formatLimit(limits.staff || 5)} per property
+                      Max {formatLimit(limits.staff ?? 0)} per property
                     </Text>
                   </View>
                 </View>
@@ -363,7 +363,7 @@ export default function SubscriptionScreen() {
                     style={[
                       styles.progressFill,
                       {
-                        width: `${calculateProgressPercentage(usage.staff || 0, limits.staff || 5)}%`,
+                        width: `${calculateProgressPercentage(usage.staff ?? 0, limits.staff ?? 0)}%`,
                         backgroundColor: colors.primary[500],
                       },
                     ]}
@@ -462,7 +462,7 @@ export default function SubscriptionScreen() {
                         <View style={styles.featureRow}>
                           <Check size={16} color={colors.success[500]} />
                           <Text style={[styles.featureText, { color: colors.text.primary }]}>
-                            {formatLimit(plan.limits.staff || 5)} {(plan.limits.staff || 5) === 999 ? 'staff' : (plan.limits.staff || 5) === 1 ? 'staff member' : 'staff members'} per property
+                            {formatLimit(plan.limits.staff ?? 0)} {(plan.limits.staff ?? 0) === 999 ? 'staff' : (plan.limits.staff ?? 0) === 1 ? 'staff member' : 'staff members'} per property
                           </Text>
                         </View>
                       </View>

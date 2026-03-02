@@ -43,7 +43,8 @@ export interface Tenant {
   phone: string;
   rent: string;
   joinDate: string;
-  billingConfig?: BillingConfig;
+  autoGeneratePayments?: boolean;
+  billingConfig?: BillingConfig | null;
   archived?: boolean;
   archivedReason?: string;
   archivedAt?: string;
@@ -64,6 +65,7 @@ export interface Payment {
   amount: string;
   status: 'paid' | 'due' | 'overdue';
   dueDate?: string; // received from backend, optional
+  paidDate?: string; // Date when payment was marked as paid
   date?: string;
   method: string | null;
   createdAt: string;

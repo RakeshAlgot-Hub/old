@@ -22,6 +22,7 @@ class PaymentBase(BaseModel):
     amount: str
     status: Literal['paid', 'due', 'overdue']
     dueDate: Optional[date] = None
+    paidDate: Optional[date] = None
     method: Optional[str] = Field(default=PaymentMethod.CASH.value)
 
 class PaymentCreate(PaymentBase):
@@ -42,4 +43,5 @@ class PaymentUpdate(BaseModel):
     amount: Optional[str] = None
     status: Optional[str] = None
     dueDate: Optional[date] = None
+    paidDate: Optional[date] = None
     method: Optional[str] = None

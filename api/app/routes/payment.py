@@ -95,28 +95,66 @@ async def list_payments(
         {
             "$lookup": {
                 "from": "tenants",
-                "localField": "tenantId",
-                "foreignField": "_id",
+                "let": {"tenantId": "$tenantId"},
                 "as": "tenant",
-                "pipeline": [{"$project": {"_id": 1, "name": 1}}]
+                "pipeline": [
+                    {
+                        "$match": {
+                            "$expr": {
+                                "$eq": [
+                                    {"$toString": "$_id"},
+                                    {"$toString": "$$tenantId"}
+                                ]
+                            }
+                        }
+                    },
+                    {"$project": {"_id": 1, "name": 1}}
+                ]
             }
         },
         # Lookup bed and room info
         {
             "$lookup": {
                 "from": "beds",
-                "localField": "bed",
-                "foreignField": "_id",
+                "let": {"bedId": "$bed"},
                 "as": "bed_info",
                 "pipeline": [
-                    {"$lookup": {
-                        "from": "rooms",
-                        "localField": "roomId",
-                        "foreignField": "_id",
-                        "as": "room_info",
-                        "pipeline": [{"$project": {"roomNumber": 1}}]
-                    }},
-                    {"$project": {"_id": 1, "room_info": 1}}
+                    {
+                        "$match": {
+                            "$expr": {
+                                "$eq": [
+                                    {"$toString": "$_id"},
+                                    {"$toString": "$$bedId"}
+                                ]
+                            }
+                        }
+                    },
+                    {
+                        "$lookup": {
+                            "from": "rooms",
+                            "let": {"roomId": "$roomId"},
+                            "as": "room_info",
+                            "pipeline": [
+                                {
+                                    "$match": {
+                                        "$expr": {
+                                            "$eq": [
+                                                {"$toString": "$_id"},
+                                                {"$toString": "$$roomId"}
+                                            ]
+                                        }
+                                    }
+                                },
+                                {"$project": {"roomNumber": 1}}
+                            ]
+                        }
+                    },
+                    {
+                        "$project": {
+                            "_id": 1,
+                            "roomNumber": {"$arrayElemAt": ["$room_info.roomNumber", 0]}
+                        }
+                    }
                 ]
             }
         },
@@ -134,7 +172,7 @@ async def list_payments(
                 "createdAt": 1,
                 "updatedAt": 1,
                 "tenantName": {"$arrayElemAt": ["$tenant.name", 0]},
-                "roomNumber": {"$arrayElemAt": ["$bed_info.room_info.roomNumber", 0]}
+                "roomNumber": {"$arrayElemAt": ["$bed_info.roomNumber", 0]}
             }
         }
     ]

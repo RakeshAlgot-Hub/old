@@ -20,12 +20,11 @@ import { spacing, typography, radius, shadows } from '@/theme';
 import { useTheme } from '@/context/ThemeContext';
 import { useProperty } from '@/context/PropertyContext';
 import { staffService, subscriptionService } from '@/services/apiClient';
-import { Staff, Subscription } from '@/services/apiTypes';
+import { Staff, Subscription, PlanLimits } from '@/services/apiTypes';
 import { ChevronLeft, Plus, Trash2, Edit2, X, Users, AlertCircle } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import Card from '@/components/Card';
 import EmptyState from '@/components/EmptyState';
-import { PLAN_LIMITS } from '@/config/planConfig';
 
 const STAFF_ROLES = [
   { label: 'Cooker', value: 'cooker' },
@@ -52,6 +51,7 @@ export default function ManageStaffScreen() {
 
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [planLimits, setPlanLimits] = useState<PlanLimits | null>(null);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
@@ -104,6 +104,29 @@ export default function ManageStaffScreen() {
       loadStaff();
     }, [loadStaff])
   );
+
+  useEffect(() => {
+    if (!subscription?.plan) {
+      setPlanLimits(null);
+      return;
+    }
+
+    let active = true;
+    (async () => {
+      try {
+        const response = await subscriptionService.getLimits(subscription.plan);
+        if (active) {
+          setPlanLimits(response.data || null);
+        }
+      } catch (error) {
+        console.error('Failed to load plan limits:', error);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [subscription?.plan]);
 
   const resetForm = () => {
     setFormData({
@@ -337,6 +360,13 @@ export default function ManageStaffScreen() {
     </Card>
   );
 
+  const hasPlanLimits = !!planLimits;
+  const staffLimit = planLimits?.staff ?? 0;
+  const hasReachedStaffLimit = !!subscription && hasPlanLimits && staffList.length >= staffLimit;
+  const staffUsagePercent = hasPlanLimits && staffLimit > 0
+    ? Math.min((staffList.length / staffLimit) * 100, 100)
+    : 0;
+
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background.primary }]}
@@ -347,9 +377,9 @@ export default function ManageStaffScreen() {
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text.primary }]}>Manage Staff</Text>
         <TouchableOpacity
-          style={[styles.addButton, { backgroundColor: colors.primary[500], opacity: subscription && staffList.length >= (PLAN_LIMITS[subscription.plan as keyof typeof PLAN_LIMITS]?.staff || 4) ? 0.5 : 1 }]}
+          style={[styles.addButton, { backgroundColor: colors.primary[500], opacity: subscription && hasReachedStaffLimit ? 0.5 : 1 }]}
           onPress={openAddModal}
-          disabled={!!(subscription && staffList.length >= (PLAN_LIMITS[subscription.plan as keyof typeof PLAN_LIMITS]?.staff || 4))}
+          disabled={!!(subscription && hasReachedStaffLimit)}
           activeOpacity={0.8}>
           <Plus size={20} color={colors.white} />
         </TouchableOpacity>
@@ -366,14 +396,14 @@ export default function ManageStaffScreen() {
                   style={[
                     styles.quotaFill,
                     {
-                      backgroundColor: staffList.length >= (PLAN_LIMITS[subscription.plan as keyof typeof PLAN_LIMITS]?.staff || 4) ? colors.danger[500] : colors.primary[500],
-                      width: `${Math.min((staffList.length / (PLAN_LIMITS[subscription.plan as keyof typeof PLAN_LIMITS]?.staff || 4)) * 100, 100)}%`,
+                      backgroundColor: hasReachedStaffLimit ? colors.danger[500] : colors.primary[500],
+                      width: `${staffUsagePercent}%`,
                     },
                   ]}
                 />
               </View>
               <Text style={[styles.quotaText, { color: colors.text.primary }]}>
-                {staffList.length} / {PLAN_LIMITS[subscription.plan as keyof typeof PLAN_LIMITS]?.staff || 4}
+                {hasPlanLimits ? `${staffList.length} / ${staffLimit}` : 'Loading limits...'}
               </Text>
             </View>
             {subscription.plan !== 'premium' && (
@@ -385,7 +415,7 @@ export default function ManageStaffScreen() {
               </TouchableOpacity>
             )}
           </View>
-          {staffList.length >= (PLAN_LIMITS[subscription.plan as keyof typeof PLAN_LIMITS]?.staff || 4) && (
+          {hasReachedStaffLimit && (
             <View style={[styles.limitWarning, { backgroundColor: colors.danger[50], borderLeftColor: colors.danger[500] }]}>
               <AlertCircle size={16} color={colors.danger[600]} />
               <Text style={[styles.limitWarningText, { color: colors.danger[700] }]}>

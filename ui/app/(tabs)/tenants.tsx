@@ -12,14 +12,13 @@ import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import ScreenContainer from '@/components/ScreenContainer';
 import StatusBadge from '@/components/StatusBadge';
-import ArchiveWarningModal from '@/components/ArchiveWarningModal';
 import Card from '@/components/Card';
 import EmptyState from '@/components/EmptyState';
 import Skeleton from '@/components/Skeleton';
 import ApiErrorCard from '@/components/ApiErrorCard';
 import FAB from '@/components/FAB';
 import UpgradeModal from '@/components/UpgradeModal';
-import { Search, Filter, Phone, Users, Archive, Edit, Trash2 } from 'lucide-react-native';
+import { Search, Filter, Phone, Users, Archive } from 'lucide-react-native';
 import { spacing, typography, radius, shadows } from '@/theme';
 import { useTheme } from '@/context/ThemeContext';
 import { useProperty } from '@/context/PropertyContext';
@@ -47,11 +46,6 @@ export default function TenantsScreen() {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 50;
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Archive Warning Modal
-  const [showArchiveWarning, setShowArchiveWarning] = useState(false);
-  const [selectedTenant, setSelectedTenant] = useState<any>(null);
-  const [warningAction, setWarningAction] = useState<'edit' | 'delete' | null>(null);
 
   const fetchRooms = useCallback(async () => {
     if (!selectedPropertyId) return;
@@ -186,27 +180,6 @@ export default function TenantsScreen() {
     router.push('/room-form');
   };
 
-  const handleEditTenant = (tenant: any) => {
-    if (tenant.archived === true) {
-      setSelectedTenant(tenant);
-      setWarningAction('edit');
-      setShowArchiveWarning(true);
-    } else {
-      router.push(`/tenant-detail?tenantId=${tenant.id}`);
-    }
-  };
-
-  const handleDeleteTenant = (tenant: any) => {
-    if (tenant.archived === true) {
-      setSelectedTenant(tenant);
-      setWarningAction('delete');
-      setShowArchiveWarning(true);
-    } else {
-      // Show delete confirmation (not implemented yet)
-      console.log('Delete tenant:', tenant);
-    }
-  };
-
   const getRoomInfo = (tenant: Tenant) => {
     // Show only room number
     if (tenant.roomNumber) {
@@ -321,9 +294,9 @@ export default function TenantsScreen() {
               return (
                 <Card key={index} style={[styles.tenantCard, tenant.archived === true ? { opacity: 0.6 } : {}] as any}>
                   <TouchableOpacity
-                    onPress={() => handleEditTenant(tenant)}
+                    onPress={() => router.push(`/tenant-detail?tenantId=${tenant.id}`)}
                     activeOpacity={0.7}
-                    disabled={tenant.archived === true}>
+                  >
                     <View style={styles.tenantHeader}>
                       <View style={[styles.avatar, { backgroundColor: tenant.archived === true ? colors.neutral[200] : colors.primary[500] }]}>
                         <Text style={[styles.avatarText, { color: colors.white }]}>
@@ -365,26 +338,6 @@ export default function TenantsScreen() {
                       </View>
                     </View>
                   </TouchableOpacity>
-
-                  {tenant.archived !== true && (
-                    <View style={styles.actionsRow}>
-                      <TouchableOpacity
-                        style={[styles.actionButton, { backgroundColor: colors.primary[50], borderColor: colors.primary[200] }]}
-                        onPress={() => handleEditTenant(tenant)}
-                        activeOpacity={0.7}>
-                        <Edit size={16} color={colors.primary[600]} />
-                        <Text style={[styles.actionText, { color: colors.primary[600] }]}>Edit</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={[styles.actionButton, { backgroundColor: colors.danger[50], borderColor: colors.danger[200] }]}
-                        onPress={() => handleDeleteTenant(tenant)}
-                        activeOpacity={0.7}>
-                        <Trash2 size={16} color={colors.danger[600]} />
-                        <Text style={[styles.actionText, { color: colors.danger[600] }]}>Delete</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
                 </Card>
               );
             })}
@@ -451,17 +404,6 @@ export default function TenantsScreen() {
         visible={showUpgradeModal}
         onClose={() => setShowUpgradeModal(false)}
         onSelectPlan={() => setShowUpgradeModal(false)}
-      />
-      <ArchiveWarningModal
-        visible={showArchiveWarning}
-        resourceName={selectedTenant?.name || 'Tenant'}
-        resourceType="tenant"
-        archivedReason={selectedTenant?.archivedReason}
-        action={warningAction}
-        onClose={() => {
-          setShowArchiveWarning(false);
-          setSelectedTenant(null);
-        }}
       />
     </ScreenContainer>
   );
@@ -617,24 +559,5 @@ const styles = StyleSheet.create({
   archivedBadgeText: {
     fontSize: typography.fontSize.xs,
     fontWeight: typography.fontWeight.semibold,
-  },
-  actionsRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.md,
-  },
-  actionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.md,
-    borderRadius: radius.md,
-    borderWidth: 1,
-  },
-  actionText: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semibold,
-    marginLeft: spacing.xs,
   },
 });

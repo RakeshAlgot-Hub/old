@@ -10,10 +10,11 @@ import {
   ScrollView,
   ActivityIndicator,
   Modal,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Wallet, ChevronLeft, ChevronDown, Calendar } from 'lucide-react-native';
+import { Wallet, ChevronLeft, ChevronDown, Calendar, AlertTriangle } from 'lucide-react-native';
 import { spacing, typography, radius, shadows } from '@/theme';
 import { useTheme } from '@/context/ThemeContext';
 import { paymentService } from '@/services/apiClient';
@@ -38,6 +39,8 @@ export default function EditPaymentScreen() {
   const [dueDate, setDueDate] = useState('');
   const [method, setMethod] = useState('Cash');
   const [status, setStatus] = useState<'paid' | 'due' | 'overdue'>('paid');
+  const [originalStatus, setOriginalStatus] = useState<'paid' | 'due' | 'overdue'>('paid');
+  const [pendingStatus, setPendingStatus] = useState<'paid' | 'due' | 'overdue' | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [fetchingPayment, setFetchingPayment] = useState(true);
@@ -45,6 +48,7 @@ export default function EditPaymentScreen() {
 
   const [showMethodPicker, setShowMethodPicker] = useState(false);
   const [showStatusPicker, setShowStatusPicker] = useState(false);
+  const [showStatusConfirmModal, setShowStatusConfirmModal] = useState(false);
 
   const [tenantName, setTenantName] = useState('');
   const [roomNumber, setRoomNumber] = useState('');
@@ -66,6 +70,7 @@ export default function EditPaymentScreen() {
       setDueDate(cachedPayment.dueDate || '');
       setMethod(cachedPayment.method || 'Cash');
       setStatus(cachedPayment.status);
+      setOriginalStatus(cachedPayment.status);
       setTenantName((cachedPayment as any).tenantName || '');
       setRoomNumber((cachedPayment as any).roomNumber || 'N/A');
       setFetchingPayment(false);
@@ -85,6 +90,7 @@ export default function EditPaymentScreen() {
       setDueDate(payment.dueDate || '');
       setMethod(payment.method || 'Cash');
       setStatus(payment.status);
+      setOriginalStatus(payment.status);
       setTenantName(payment.tenantName);
       setRoomNumber(payment.roomNumber || 'N/A');
       setScreenCache(paymentCacheKey, payment);
@@ -97,6 +103,42 @@ export default function EditPaymentScreen() {
 
   const handleRetry = () => {
     fetchPayment();
+  };
+
+  const handleStatusSelection = (newStatus: 'paid' | 'due' | 'overdue') => {
+    // If status is changing, show confirmation
+    if (newStatus !== status) {
+      setPendingStatus(newStatus);
+      setShowStatusPicker(false);
+      setShowStatusConfirmModal(true);
+    } else {
+      setShowStatusPicker(false);
+    }
+  };
+
+  const handleConfirmStatusChange = () => {
+    if (pendingStatus) {
+      setStatus(pendingStatus);
+      setPendingStatus(null);
+    }
+    setShowStatusConfirmModal(false);
+  };
+
+  const handleCancelStatusChange = () => {
+    setPendingStatus(null);
+    setShowStatusConfirmModal(false);
+  };
+
+  const getStatusConfirmationMessage = () => {
+    if (!pendingStatus) return '';
+    
+    if (pendingStatus === 'paid') {
+      return 'Mark this payment as Paid? The payment date will be recorded as today. This action should only be confirmed once payment is received.';
+    } else if (status === 'paid' && (pendingStatus === 'due' || pendingStatus === 'overdue')) {
+      return 'Change status from Paid to Due? This will remove the paid record.';
+    } else {
+      return `Change payment status to ${PAYMENT_STATUSES.find(s => s.value === pendingStatus)?.label}?`;
+    }
   };
 
   const handleSubmit = async () => {
@@ -120,12 +162,17 @@ export default function EditPaymentScreen() {
       setLoading(true);
       setError(null);
 
-      await paymentService.updatePayment(paymentId, {
+      const updateData: any = {
         amount: `₹${amountNum.toLocaleString()}`,
         dueDate,
         method,
         status,
-      } as any);
+      };
+
+      // If changing to paid and there's no paidDate, backend will auto-set it
+      // If changing away from paid, let backend handle it (paidDate can remain)
+
+      await paymentService.updatePayment(paymentId, updateData);
 
       clearScreenCache('payments:');
       clearScreenCache('dashboard:');
@@ -433,10 +480,7 @@ export default function EditPaymentScreen() {
                     styles.modalOption,
                     { borderBottomColor: colors.border.light },
                   ]}
-                  onPress={() => {
-                    setStatus(s.value as 'paid' | 'due' | 'overdue');
-                    setShowStatusPicker(false);
-                  }}
+                  onPress={() => handleStatusSelection(s.value as 'paid' | 'due' | 'overdue')}
                   activeOpacity={0.7}>
                   <Text
                     style={[
@@ -464,6 +508,49 @@ export default function EditPaymentScreen() {
                 Cancel
               </Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Status Change Confirmation Modal */}
+      <Modal
+        visible={showStatusConfirmModal}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCancelStatusChange}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.confirmModalContainer, { backgroundColor: colors.white }]}>
+            <View style={styles.confirmIconContainer}>
+              <View style={[styles.confirmIcon, { backgroundColor: pendingStatus === 'paid' ? colors.success[50] : colors.warning[50] }]}>
+                <AlertTriangle size={32} color={pendingStatus === 'paid' ? colors.success[500] : colors.warning[500]} />
+              </View>
+            </View>
+
+            <Text style={[styles.confirmTitle, { color: colors.text.primary }]}>
+              Confirm Status Change
+            </Text>
+            <Text style={[styles.confirmMessage, { color: colors.text.secondary }]}>
+              {getStatusConfirmationMessage()}
+            </Text>
+
+            <View style={styles.confirmActions}>
+              <TouchableOpacity
+                style={[styles.confirmButton, styles.cancelButton, { backgroundColor: colors.background.secondary, borderColor: colors.border.medium }]}
+                onPress={handleCancelStatusChange}
+                activeOpacity={0.7}>
+                <Text style={[styles.cancelButtonText, { color: colors.text.primary }]}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmButton, styles.confirmButtonPrimary, { backgroundColor: pendingStatus === 'paid' ? colors.success[500] : colors.warning[500] }]}
+                onPress={handleConfirmStatusChange}
+                activeOpacity={0.7}>
+                <Text style={[styles.confirmButtonText, { color: colors.white }]}>
+                  Confirm
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -636,6 +723,60 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalCloseButtonText: {
+    fontSize: typography.fontSize.md,
+    fontWeight: typography.fontWeight.semibold,
+  },
+  confirmModalContainer: {
+    marginHorizontal: spacing.xl,
+    borderRadius: radius.xl,
+    padding: spacing.xl,
+    ...shadows.xl,
+  },
+  confirmIconContainer: {
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  confirmIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmTitle: {
+    fontSize: typography.fontSize.xl,
+    fontWeight: typography.fontWeight.bold,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+  },
+  confirmMessage: {
+    fontSize: typography.fontSize.md,
+    textAlign: 'center',
+    marginBottom: spacing.xl,
+    lineHeight: 22,
+  },
+  confirmActions: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  confirmButton: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButton: {
+    borderWidth: 1,
+  },
+  cancelButtonText: {
+    fontSize: typography.fontSize.md,
+    fontWeight: typography.fontWeight.semibold,
+  },
+  confirmButtonPrimary: {
+    ...shadows.md,
+  },
+  confirmButtonText: {
     fontSize: typography.fontSize.md,
     fontWeight: typography.fontWeight.semibold,
   },

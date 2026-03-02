@@ -379,8 +379,17 @@ export default function PaymentsScreen() {
                     <View style={styles.paymentFooter}>
                       <View style={styles.dateRow}>
                         <Calendar size={14} color={colors.text.secondary} />
-                        <Text style={[styles.dateLabel, { color: colors.text.secondary }]}>Due:</Text>
-                        <Text style={[styles.dateValue, { color: colors.text.primary }]}>{payment.dueDate ? payment.dueDate : '-'}</Text>
+                        {payment.status === 'paid' ? (
+                          <>
+                            <Text style={[styles.dateLabel, { color: colors.text.secondary }]}>Paid On:</Text>
+                            <Text style={[styles.dateValue, { color: colors.text.primary }]}>{payment.paidDate || payment.dueDate || '-'}</Text>
+                          </>
+                        ) : (
+                          <>
+                            <Text style={[styles.dateLabel, { color: colors.text.secondary }]}>Due:</Text>
+                            <Text style={[styles.dateValue, { color: colors.text.primary }]}>{payment.dueDate || '-'}</Text>
+                          </>
+                        )}
                       </View>
                       {/* Show payment method if present */}
                       {payment.method && (
