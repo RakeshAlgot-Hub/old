@@ -37,35 +37,68 @@ class TenantService:
         # Get total count
         total = await self.collection.count_documents(query)
         
-        # Get paginated results
-        cursor = self.collection.find(query).skip(skip).limit(limit)
-        tenants = []
+        # Build aggregation pipeline to replace N+1 queries
+        pipeline = [{"$match": query}]
         
-        # Get collections for enrichment
-        rooms_collection = getCollection("rooms") if include_room_bed else None
-        beds_collection = getCollection("beds") if include_room_bed else None
+        if include_room_bed:
+            pipeline.extend([
+                # Lookup room info
+                {
+                    "$lookup": {
+                        "from": "rooms",
+                        "localField": "roomId",
+                        "foreignField": "_id",
+                        "as": "room_info",
+                        "pipeline": [{"$project": {"roomNumber": 1}}]
+                    }
+                },
+                # Lookup bed info
+                {
+                    "$lookup": {
+                        "from": "beds",
+                        "localField": "bedId",
+                        "foreignField": "_id",
+                        "as": "bed_info",
+                        "pipeline": [{"$project": {"bedNumber": 1}}]
+                    }
+                },
+                # Project enriched fields
+                {
+                    "$project": {
+                        "_id": 1,
+                        "propertyId": 1,
+                        "roomId": 1,
+                        "bedId": 1,
+                        "name": 1,
+                        "documentId": 1,
+                        "phone": 1,
+                        "rent": 1,
+                        "status": 1,
+                        "joinDate": 1,
+                        "checkoutDate": 1,
+                        "createdAt": 1,
+                        "updatedAt": 1,
+                        "billingConfig": 1,
+                        "autoGeneratePayments": 1,
+                        "roomNumber": {"$arrayElemAt": ["$room_info.roomNumber", 0]},
+                        "bedNumber": {"$arrayElemAt": ["$bed_info.bedNumber", 0]}
+                    }
+                }
+            ])
+        
+        pipeline.extend([
+            {"$skip": skip},
+            {"$limit": limit}
+        ])
+        
+        # Execute aggregation pipeline
+        cursor = self.collection.aggregate(pipeline)
+        tenants = []
         
         async for doc in cursor:
             doc["id"] = str(doc["_id"])
-            
-            # Enrich with room and bed numbers to avoid extra API calls
-            if include_room_bed:
-                try:
-                    # Try to get room info from roomId directly
-                    if doc.get("roomId"):
-                        room_doc = await rooms_collection.find_one({"_id": ObjectId(doc["roomId"])})
-                        if room_doc:
-                            doc["roomNumber"] = room_doc.get("roomNumber")
-                    
-                    # Get bed info from bedId
-                    if doc.get("bedId"):
-                        bed_doc = await beds_collection.find_one({"_id": ObjectId(doc["bedId"])})
-                        if bed_doc:
-                            doc["bedNumber"] = bed_doc.get("bedNumber")
-                except Exception as e:
-                    pass  # If lookup fails, continue without enrichment
-            
             tenants.append(TenantOut(**doc))
+        
         return tenants, total
 
     async def get_tenant(self, tenant_id: str):
@@ -180,30 +213,35 @@ class TenantService:
 
     async def generate_monthly_payments(self):
         """
-        Production-ready scheduled task to generate recurring monthly payments.
-        Runs daily and creates payments for tenants with autoGeneratePayments=true.
+        Optimized cron job: generates recurring monthly payments.
+        Uses cursor iteration (memory-efficient), batch inserts, and logging.
         
-        Logic:
-        - For 'monthly' billing: Create payment on anchor date
-        - For 'day-wise' billing: Create payment based on frequency
-        - Prevent duplicate payments using idempotency check
-        - Handle timezone conversions properly
-        
-        Returns: {"created": int, "skipped": int, "errors": list}
+        Returns: {"created": int, "skipped": int, "errors": list, "duration_ms": int}
         """
+        import time
+        import logging
+        
+        logger = logging.getLogger(__name__)
+        start_time = time.time()
+        
         try:
             result = {"created": 0, "skipped": 0, "errors": []}
             payments_collection = getCollection("payments")
             today = datetime.now(timezone.utc).date()
             
-            # Find all active tenants with autoGeneratePayments enabled
-            tenants = await self.collection.find({
+            logger.info(f"[CRON] Starting payment generation at {today.isoformat()}")
+            
+            # Use cursor iteration instead of .to_list(None) - memory efficient
+            tenant_cursor = self.collection.find({
                 "autoGeneratePayments": True,
                 "billingConfig": {"$exists": True},
                 "billingConfig.billingCycle": {"$in": [BillingCycle.MONTHLY.value, BillingCycle.DAY_WISE.value]}
-            }).to_list(None)
+            })
             
-            for tenant_doc in tenants:
+            payments_to_insert = []
+            batch_size = 100  # Insert 100 at a time
+            
+            async for tenant_doc in tenant_cursor:
                 try:
                     tenant_id = str(tenant_doc["_id"])
                     billing_config_dict = tenant_doc.get("billingConfig", {})
@@ -212,22 +250,18 @@ class TenantService:
                         result["skipped"] += 1
                         continue
                     
-                    # Parse billing config using schema for proper validation
+                    # Parse billing config
                     try:
                         billing_config = BillingConfig(**billing_config_dict)
                     except Exception:
                         result["skipped"] += 1
                         continue
                     
-                    # Get anchor day from validated schema
-                    anchor_day = billing_config.anchorDay
-                    
-                    # Check if tenant has already checked out
+                    # Skip if tenant has checked out
                     checkout_date_str = tenant_doc.get("checkoutDate")
                     if checkout_date_str:
                         checkout_date = datetime.fromisoformat(checkout_date_str).date()
                         if today > checkout_date:
-                            # Tenant has checked out, skip payment generation
                             result["skipped"] += 1
                             continue
                     
@@ -235,74 +269,81 @@ class TenantService:
                     due_date = None
                     
                     if billing_config.billingCycle == BillingCycle.MONTHLY.value:
-                        # For monthly: use relativedelta(day=anchor_day) to handle non-existent days
-                        # (e.g., Feb 30 becomes Feb 28 automatically)
-                        due_date = today + relativedelta(day=anchor_day)
-                        # If anchor day has passed this month, use next month's due date
+                        due_date = today + relativedelta(day=billing_config.anchorDay)
                         if due_date < today:
                             due_date = due_date + relativedelta(months=1)
                     
                     elif billing_config.billingCycle == BillingCycle.DAY_WISE.value:
-                        # For day-wise: calculate based on start date (or join date) + interval
                         try:
                             start_date_str = billing_config.dayWiseStartDate or tenant_doc.get("joinDate", today.isoformat())
                             start_date = datetime.fromisoformat(start_date_str).date()
                             anchor_days = billing_config.anchorDay
-                            # Calculate days since start
-                            days_since_start = (today.date() - start_date).days
-                            # Next due date is at the next interval boundary
+                            days_since_start = (today - start_date).days
                             intervals_passed = days_since_start // anchor_days
                             next_due = start_date + timedelta(days=(intervals_passed + 1) * anchor_days)
                             due_date = next_due
                         except (ValueError, TypeError):
-                            due_date = today.date()
+                            due_date = today
                     
                     if not due_date:
                         result["skipped"] += 1
                         continue
                     
-                    # Idempotency check: Don't create duplicate payments for the same month
-                    # Check if payment already exists for this tenant in this month
-                    month_start = today.replace(day=1)
-                    month_end = month_start + relativedelta(months=1) - relativedelta(days=1)
-                    
-                    existing_payment = await payments_collection.find_one({
-                        "tenantId": tenant_id,
-                        "dueDate": {"$gte": month_start, "$lte": month_end}
-                    })
-                    
-                    if existing_payment:
-                        result["skipped"] += 1
-                        continue
-                    
-                    # Create payment
+                    # Build payment data
                     payment_data = {
                         "tenantId": tenant_id,
                         "propertyId": tenant_doc.get("propertyId"),
                         "bed": tenant_doc.get("bedId", ""),
-                        "amount": float(tenant_doc.get("rent", 0)),
+                        "amount": tenant_doc.get("rent", "0"),  # Keep as string
                         "status": billing_config.status,
-                        "dueDate": due_date,
+                        "dueDate": due_date.isoformat(),
                         "method": billing_config.method or PaymentMethod.CASH.value,
                         "createdAt": datetime.now(timezone.utc),
-                        "updatedAt": datetime.now(timezone.utc),
-                        "notes": f"Auto-generated payment for {due_date.strftime('%B %Y')}"
+                        "updatedAt": datetime.now(timezone.utc)
                     }
                     
-                    await payments_collection.insert_one(payment_data)
+                    payments_to_insert.append(payment_data)
                     result["created"] += 1
                     
+                    # Batch insert when reaching batch size
+                    if len(payments_to_insert) >= batch_size:
+                        try:
+                            await payments_collection.insert_many(payments_to_insert, ordered=False)
+                            logger.info(f"[CRON] Inserted batch of {len(payments_to_insert)} payments")
+                            payments_to_insert = []
+                        except Exception as batch_error:
+                            logger.error(f"[CRON] Batch insert failed: {str(batch_error)}")
+                            result["errors"].append({"error": f"batch_insert: {str(batch_error)}"})
+                            payments_to_insert = []  # Clear batch and continue
+                
                 except Exception as e:
                     result["errors"].append({
                         "tenantId": str(tenant_doc.get("_id", "unknown")),
                         "error": str(e)
                     })
             
+            # Insert remaining payments
+            if payments_to_insert:
+                try:
+                    await payments_collection.insert_many(payments_to_insert, ordered=False)
+                    logger.info(f"[CRON] Inserted final batch of {len(payments_to_insert)} payments")
+                except Exception as batch_error:
+                    logger.error(f"[CRON] Final batch insert failed: {str(batch_error)}")
+                    result["errors"].append({"error": f"final_batch: {str(batch_error)}"})
+            
+            duration_ms = int((time.time() - start_time) * 1000)
+            result["duration_ms"] = duration_ms
+            
+            logger.info(f"[CRON] Completed: created={result['created']}, skipped={result['skipped']}, errors={len(result['errors'])}, duration={duration_ms}ms")
+            
             return result
             
         except Exception as e:
+            duration_ms = int((time.time() - start_time) * 1000)
+            logger.error(f"[CRON] Failed: {str(e)}, duration={duration_ms}ms")
             return {
                 "created": 0,
                 "skipped": 0,
-                "errors": [{"job": "generate_monthly_payments", "error": str(e)}]
+                "errors": [{"job": "generate_monthly_payments", "error": str(e)}],
+                "duration_ms": duration_ms
             }

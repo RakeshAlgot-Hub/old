@@ -15,5 +15,5 @@ class Usage(BaseModel):
     ownerId: str
     properties: int
     tenants: int
-    smsCredits: int
+    rooms: int
     updatedAt: str

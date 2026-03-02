@@ -8,6 +8,7 @@ import SectionHeader from '@/components/SectionHeader';
 import Card from '@/components/Card';
 import EmptyState from '@/components/EmptyState';
 import SubscriptionSummaryCard from '@/components/SubscriptionSummaryCard';
+import LimitBanner from '@/components/LimitBanner';
 import Skeleton from '@/components/Skeleton';
 import ApiErrorCard from '@/components/ApiErrorCard';
 import UpgradeModal from '@/components/UpgradeModal';
@@ -25,14 +26,16 @@ import { useProperty } from '@/context/PropertyContext';
 import {
   paymentService,
   dashboardService,
+  subscriptionService,
 } from '@/services/apiClient';
-import type { Payment, DashboardStats } from '@/services/apiTypes';
+import type { Payment, DashboardStats, QuotaWarningsResponse } from '@/services/apiTypes';
 import { cacheKeys, getScreenCache, setScreenCache, clearScreenCache } from '@/services/screenCache';
 
 interface DashboardData {
   stats: DashboardStats;
   duePayments: Payment[];
   overduePayments: Payment[];
+  quotaWarnings?: QuotaWarningsResponse | null;
 }
 
 const DASHBOARD_CACHE_STALE_MS = 60 * 1000;
@@ -45,6 +48,7 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [quotaWarnings, setQuotaWarnings] = useState<QuotaWarningsResponse | null>(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const fetchDashboardData = async () => {
@@ -57,6 +61,7 @@ export default function DashboardScreen() {
     const cachedData = getScreenCache<DashboardData>(cacheKey, DASHBOARD_CACHE_STALE_MS);
     if (cachedData) {
       setDashboardData(cachedData);
+      setQuotaWarnings(cachedData.quotaWarnings || null);
       setLoading(false);
       setError(null);
       return;
@@ -67,10 +72,11 @@ export default function DashboardScreen() {
       setError(null);
 
       // Fetch aggregated stats and payments data
-      const [statsRes, dueRes, overdueRes] = await Promise.all([
+      const [statsRes, dueRes, overdueRes, warningsRes] = await Promise.all([
         dashboardService.getStats(selectedPropertyId),
         paymentService.getPayments(selectedPropertyId, { status: 'due', page: 1, pageSize: 10 }),
         paymentService.getPayments(selectedPropertyId, { status: 'overdue', page: 1, pageSize: 10 }),
+        subscriptionService.getQuotaWarnings(),
       ]);
 
       const stats = statsRes.data || {
@@ -82,16 +88,20 @@ export default function DashboardScreen() {
       };
       const duePayments = dueRes.data || [];
       const overduePayments = overdueRes.data || [];
+      const warnings = warningsRes.data || null;
 
       setDashboardData({
         stats,
         duePayments,
         overduePayments,
+        quotaWarnings: warnings,
       });
+      setQuotaWarnings(warnings);
       setScreenCache(cacheKey, {
         stats,
         duePayments,
         overduePayments,
+        quotaWarnings: warnings,
       });
     } catch (err: any) {
       if (err?.code === 'upgrade_required') {
@@ -229,6 +239,16 @@ export default function DashboardScreen() {
               <Text style={[styles.greeting, { color: colors.text.secondary }]}>Welcome back,</Text>
               <Text style={[styles.ownerName, { color: colors.text.primary }]}>Property Owner</Text>
             </View>
+
+            {quotaWarnings && quotaWarnings.warnings.length > 0 && (
+              quotaWarnings.warnings.map((warning, index) => (
+                <LimitBanner
+                  key={index}
+                  message={warning.message}
+                  onUpgrade={() => router.push('/subscription')}
+                />
+              ))
+            )}
 
             <View style={styles.statsGrid}>
               {stats.map((stat, index) => (

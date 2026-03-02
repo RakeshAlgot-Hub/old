@@ -3,7 +3,7 @@ export type PlanType = 'free' | 'pro' | 'premium';
 export interface PlanLimits {
   properties: number;
   tenants: number;
-  smsCredits: number;
+  rooms: number;
 }
 
 export interface PlanConfig {
@@ -12,7 +12,7 @@ export interface PlanConfig {
   usage: {
     properties: number;
     tenants: number;
-    smsCredits: number;
+    rooms: number;
   };
 }
 
@@ -20,17 +20,17 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
   free: {
     properties: 2,
     tenants: 20,
-    smsCredits: 50,
+    rooms: 30,
   },
   pro: {
     properties: 10,
     tenants: 100,
-    smsCredits: 500,
+    rooms: 30,
   },
   premium: {
     properties: 999,
     tenants: 999,
-    smsCredits: 999,
+    rooms: 30,
   },
 };
 
@@ -40,15 +40,15 @@ export const planConfig: PlanConfig = {
   usage: {
     properties: 8,
     tenants: 142,
-    smsCredits: 35,
+    rooms: 15,
   },
 };
 
-export const isLimitReached = (type: 'properties' | 'tenants' | 'smsCredits'): boolean => {
+export const isLimitReached = (type: 'properties' | 'tenants' | 'rooms'): boolean => {
   return planConfig.usage[type] >= planConfig.limits[type];
 };
 
-export const getUsagePercentage = (type: 'properties' | 'tenants' | 'smsCredits'): number => {
+export const getUsagePercentage = (type: 'properties' | 'tenants' | 'rooms'): number => {
   const limit = planConfig.limits[type];
   if (limit === 999) return 10;
   return Math.min((planConfig.usage[type] / limit) * 100, 100);

@@ -33,6 +33,7 @@ import {
   VerifyPaymentRequest,
   VerifyPaymentResponse,
   DashboardStats,
+  QuotaWarningsResponse,
 } from './apiTypes';
 import { tokenStorage } from './tokenStorage';
 
@@ -190,6 +191,14 @@ async function _performRequest<T>(
             code: 'TOO_MANY_REQUESTS',
             message: responseData?.detail || responseData?.message || 'Too many attempts. Please try again later.',
             details: { status: 429 },
+          };
+          throw error;
+        }
+        if (response.status === 402) {
+          const error: ApiError = {
+            code: 'SUBSCRIPTION_LIMIT_EXCEEDED',
+            message: responseData?.detail || responseData?.message || 'You have reached your plan limit. Please upgrade to continue.',
+            details: { status: 402, ...responseData?.details },
           };
           throw error;
         }
@@ -503,6 +512,10 @@ export const subscriptionService = {
     data: VerifyPaymentRequest
   ): Promise<ApiResponse<VerifyPaymentResponse>> {
     return await request<VerifyPaymentResponse>('POST', '/subscription/verify-payment', data, true) as ApiResponse<VerifyPaymentResponse>;
+  },
+
+  async getQuotaWarnings(): Promise<ApiResponse<QuotaWarningsResponse>> {
+    return await request<QuotaWarningsResponse>('GET', '/subscription/quota-warnings', undefined, true) as ApiResponse<QuotaWarningsResponse>;
   },
 };
 

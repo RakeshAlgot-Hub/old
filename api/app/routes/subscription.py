@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from typing import Literal
 from app.utils.helpers import get_current_user
 from app.services.subscription_service import SubscriptionService
+from app.services.subscription_enforcement import SubscriptionEnforcement
 from app.services.razorpay_service import RazorpayService
 
 router = APIRouter(prefix="/subscription", tags=["subscription"])
@@ -19,6 +20,15 @@ async def get_subscription(user_id: str = Depends(get_current_user)):
 async def get_usage(user_id: str = Depends(get_current_user)):
     usage = await SubscriptionService.get_usage(user_id)
     return {"data": usage.model_dump()}
+
+
+@router.get("/quota-warnings")
+async def get_quota_warnings(user_id: str = Depends(get_current_user)):
+    """Get quota usage warnings if approaching limits (80%+)"""
+    warnings = await SubscriptionEnforcement.get_usage_warning(user_id)
+    if warnings:
+        return {"data": warnings}
+    return {"data": None}
 
 
 @router.get("/limits/{plan}")
@@ -90,3 +100,30 @@ async def verify_payment(payload: dict, user_id: str = Depends(get_current_user)
 
     await SubscriptionService.update_subscription(user_id, plan_or_error)
     return {"data": {"success": True, "subscription": plan_or_error}}
+
+
+@router.get("/downgrade-check")
+async def downgrade_check(user_id: str = Depends(get_current_user)):
+    """Check if user can downgrade to free tier"""
+    eligibility = await SubscriptionService.check_downgrade_eligibility(user_id)
+    return {"data": eligibility}
+
+
+@router.post("/cancel")
+async def cancel_subscription(user_id: str = Depends(get_current_user)):
+    """Cancel subscription and downgrade to free plan"""
+    # Check if user can downgrade
+    eligibility = await SubscriptionService.check_downgrade_eligibility(user_id)
+    
+    if not eligibility["can_downgrade"]:
+        raise HTTPException(
+            status_code=402,
+            detail=f"Cannot cancel subscription. You have {eligibility['current']['properties']} "
+                   f"properties (2 allowed) and {eligibility['current']['tenants']} tenants "
+                   f"(20 allowed on free plan). Please delete excess resources before canceling.",
+            code="DOWNGRADE_REQUIRED_CLEANUP"
+        )
+    
+    # Cancel subscription
+    sub = await SubscriptionService.cancel_subscription(user_id)
+    return {"data": sub.model_dump()}

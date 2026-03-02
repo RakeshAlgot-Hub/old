@@ -82,14 +82,14 @@ export interface Usage {
   ownerId: string;
   properties: number;
   tenants: number;
-  smsCredits: number;
+  rooms: number;
   updatedAt: string;
 }
 
 export interface PlanLimits {
   properties: number;
   tenants: number;
-  smsCredits: number;
+  rooms: number;
 }
 
 export interface ApiError {
@@ -249,4 +249,18 @@ export interface VerifyPaymentRequest {
 export interface VerifyPaymentResponse {
   success: boolean;
   subscription: Subscription;
+}
+
+export interface QuotaWarning {
+  type: 'properties' | 'tenants';
+  current: number;
+  limit: number;
+  percent: number;
+  message: string;
+}
+
+export interface QuotaWarningsResponse {
+  plan: 'free' | 'pro' | 'premium';
+  warnings: QuotaWarning[];
+  upgrade_url?: string;
 }

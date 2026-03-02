@@ -28,9 +28,10 @@ class PaymentService:
         return None
 
     async def create_payment(self, payment_data: PaymentCreate) -> Payment:
+        from pymongo.errors import DuplicateKeyError
+        
         now = datetime.now(timezone.utc)
         payment_dict = payment_data.model_dump()
-        print("Creating payment with data:", payment_dict)
         
         # Convert date object to ISO string for MongoDB storage
         if payment_dict.get("dueDate") and hasattr(payment_dict["dueDate"], 'isoformat'):
@@ -38,9 +39,22 @@ class PaymentService:
         
         payment_dict["createdAt"] = now
         payment_dict["updatedAt"] = now
-        result = await self.collection.insert_one(payment_dict)
-        payment_dict["id"] = str(result.inserted_id)
-        return Payment(**payment_dict)
+        
+        try:
+            result = await self.collection.insert_one(payment_dict)
+            payment_dict["id"] = str(result.inserted_id)
+            return Payment(**payment_dict)
+        except DuplicateKeyError:
+            # Payment already exists for this tenant on this due date
+            # Return existing payment instead of raising error
+            existing = await self.collection.find_one({
+                "tenantId": payment_dict.get("tenantId"),
+                "dueDate": payment_dict.get("dueDate")
+            })
+            if existing:
+                existing["id"] = str(existing["_id"])
+                return Payment(**existing)
+            raise
 
     async def get_payment_stats(self):
         payments = await self.collection.find().to_list(length=100)

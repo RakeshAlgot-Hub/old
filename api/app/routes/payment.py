@@ -46,109 +46,109 @@ async def list_payments(
     from datetime import datetime
     
     property_ids = getattr(request.state, "property_ids", [])
-    query = {"propertyId": {"$in": property_ids}} if property_ids else {}
     
-    # Filter by specific property if provided
+    # Build match stage
+    match_stage = {"propertyId": {"$in": property_ids}} if property_ids else {}
+    
     if propertyId:
         if propertyId in property_ids:
-            query = {"propertyId": propertyId}
+            match_stage = {"propertyId": propertyId}
         else:
             raise HTTPException(status_code=403, detail="Forbidden")
 
     if tenantId:
-        query["tenantId"] = tenantId
+        match_stage["tenantId"] = tenantId
 
     if status:
-        query["status"] = status
+        match_stage["status"] = status
 
-    # Date range filtering (filter by dueDate field)
     if startDate or endDate:
         date_query = {}
         if startDate:
-            try:
-                # Convert ISO string to date, then to ISO format string for MongoDB
-                start_datetime = datetime.fromisoformat(startDate.replace('Z', '+00:00'))
-                date_query["$gte"] = start_datetime.date().isoformat()
-            except ValueError:
-                raise HTTPException(status_code=400, detail="Invalid startDate format. Use ISO 8601.")
+            start_datetime = datetime.fromisoformat(startDate.replace('Z', '+00:00'))
+            date_query["$gte"] = start_datetime.date().isoformat()
         if endDate:
-            try:
-                # Convert ISO string to date, then to ISO format string for MongoDB
-                end_datetime = datetime.fromisoformat(endDate.replace('Z', '+00:00'))
-                date_query["$lte"] = end_datetime.date().isoformat()
-            except ValueError:
-                raise HTTPException(status_code=400, detail="Invalid endDate format. Use ISO 8601.")
+            end_datetime = datetime.fromisoformat(endDate.replace('Z', '+00:00'))
+            date_query["$lte"] = end_datetime.date().isoformat()
         if date_query:
-            query["dueDate"] = date_query
+            match_stage["dueDate"] = date_query
 
     page = max(1, page)
     page_size = min(max(1, page_size), 200)
     skip = (page - 1) * page_size
     
-    total = await payment_service.collection.count_documents(query)
-    cursor = payment_service.collection.find(query).sort("updatedAt", -1).skip(skip).limit(page_size)
-    payments = await cursor.to_list(length=page_size)
+    # Get total count
+    count_pipeline = [
+        {"$match": match_stage},
+        {"$count": "total"}
+    ]
+    count_result = await payment_service.collection.aggregate(count_pipeline).to_list(1)
+    total = count_result[0]["total"] if count_result else 0
     
-    # Enrich payments with tenant names and room numbers
-    tenant_ids = list(set(p.get("tenantId") for p in payments if p.get("tenantId")))
-    bed_ids = list(set(p.get("bed") for p in payments if p.get("bed")))
+    # Single aggregation pipeline replaces all N+1 queries
+    pipeline = [
+        {"$match": match_stage},
+        {"$sort": {"updatedAt": -1}},
+        {"$skip": skip},
+        {"$limit": page_size},
+        # Lookup tenant name
+        {
+            "$lookup": {
+                "from": "tenants",
+                "localField": "tenantId",
+                "foreignField": "_id",
+                "as": "tenant",
+                "pipeline": [{"$project": {"_id": 1, "name": 1}}]
+            }
+        },
+        # Lookup bed and room info
+        {
+            "$lookup": {
+                "from": "beds",
+                "localField": "bed",
+                "foreignField": "_id",
+                "as": "bed_info",
+                "pipeline": [
+                    {"$lookup": {
+                        "from": "rooms",
+                        "localField": "roomId",
+                        "foreignField": "_id",
+                        "as": "room_info",
+                        "pipeline": [{"$project": {"roomNumber": 1}}]
+                    }},
+                    {"$project": {"_id": 1, "room_info": 1}}
+                ]
+            }
+        },
+        # Project final output
+        {
+            "$project": {
+                "_id": 1,
+                "tenantId": 1,
+                "propertyId": 1,
+                "bed": 1,
+                "amount": 1,
+                "status": 1,
+                "dueDate": 1,
+                "method": 1,
+                "createdAt": 1,
+                "updatedAt": 1,
+                "tenantName": {"$arrayElemAt": ["$tenant.name", 0]},
+                "roomNumber": {"$arrayElemAt": ["$bed_info.room_info.roomNumber", 0]}
+            }
+        }
+    ]
     
-    # Get tenant names
-    valid_tenant_ids = []
-    for tid in tenant_ids:
-        try:
-            valid_tenant_ids.append(ObjectId(tid))
-        except Exception:
-            # Skip invalid ObjectIds
-            pass
+    payments_cursor = await payment_service.collection.aggregate(pipeline).to_list(page_size)
     
-    tenants_cursor = await payment_service.get_tenants_collection().find(
-        {"_id": {"$in": valid_tenant_ids}},
-        {"_id": 1, "name": 1}
-    ).to_list(None)
-    tenant_map = {str(t["_id"]): t.get("name", "Unknown") for t in tenants_cursor}
-    
-    # Get room numbers via bed lookup
-    valid_bed_ids = []
-    for bid in bed_ids:
-        if bid:
-            try:
-                valid_bed_ids.append(ObjectId(bid))
-            except Exception:
-                # Skip invalid ObjectIds (e.g., UUIDs or non-MongoDB IDs)
-                pass
-    
-    beds_cursor = await payment_service.get_beds_collection().find(
-        {"_id": {"$in": valid_bed_ids}},
-        {"_id": 1, "roomId": 1}
-    ).to_list(None)
-    bed_to_room = {str(b["_id"]): b.get("roomId") for b in beds_cursor}
-    
-    # Get room numbers
-    room_ids = list(set(rid for rid in bed_to_room.values() if rid))
-    valid_room_ids = []
-    for rid in room_ids:
-        try:
-            valid_room_ids.append(ObjectId(rid))
-        except Exception:
-            # Skip invalid ObjectIds
-            pass
-    
-    rooms_cursor = await payment_service.get_rooms_collection().find(
-        {"_id": {"$in": valid_room_ids}},
-        {"_id": 1, "roomNumber": 1}
-    ).to_list(None)
-    room_map = {str(r["_id"]): r.get("roomNumber", "N/A") for r in rooms_cursor}
-    
-    # Enrich payments
-    for p in payments:
+    # Convert to Payment objects
+    payments = []
+    for p in payments_cursor:
         p["id"] = str(p["_id"])
-        p["tenantName"] = tenant_map.get(p.get("tenantId"), "Unknown")
-        room_id = bed_to_room.get(p.get("bed"))
-        p["roomNumber"] = room_map.get(room_id, "N/A") if room_id else "N/A"
+        payments.append(Payment(**p))
     
     return {
-        "data": [Payment(**p) for p in payments],
+        "data": payments,
         "meta": {
             "total": total,
             "page": page,

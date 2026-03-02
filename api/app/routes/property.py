@@ -1,6 +1,7 @@
 from fastapi import APIRouter, status, Request
 from app.models.property_schema import PropertyCreate, PropertyOut
 from app.services.property_service import PropertyService
+from app.services.subscription_enforcement import SubscriptionEnforcement
 from typing import List
 
 
@@ -10,6 +11,10 @@ property_service = PropertyService()
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=PropertyOut)
 async def create_property(request: Request, property: PropertyCreate):
     user_id = getattr(request.state, "user_id", None)
+    
+    # Check subscription quota before creating property
+    await SubscriptionEnforcement.ensure_can_create_property(user_id)
+    
     property.ownerId = user_id
     return await property_service.create_property(property)
 

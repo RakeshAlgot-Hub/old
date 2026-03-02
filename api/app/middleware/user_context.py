@@ -17,6 +17,7 @@ class UserContextMiddleware(BaseHTTPMiddleware):
         user = None
         role = None
         property_ids = []
+        subscription = None
         auth_header = request.headers.get("Authorization")
         logger = logging.getLogger("uvicorn.error")
 
@@ -67,11 +68,22 @@ class UserContextMiddleware(BaseHTTPMiddleware):
         else:
             logger.warning("Missing or invalid Authorization header.")
             return JSONResponse(status_code=status.HTTP_401_UNAUTHORIZED, content={"detail": "Missing or invalid Authorization header"})
+        
+        # Load subscription info
+        if user_id:
+            from app.services.subscription_service import SubscriptionService
+            try:
+                subscription = await SubscriptionService.get_subscription(user_id)
+            except Exception as e:
+                logger.warning(f"Failed to load subscription for {user_id}: {e}")
+                subscription = None
+        
         # Attach metadata to request.state
         request.state.user_id = user_id
         request.state.role = role
         request.state.property_ids = property_ids
         request.state.current_user = user
+        request.state.subscription = subscription
         response = await call_next(request)
         return response
 

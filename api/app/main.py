@@ -31,13 +31,39 @@ if not os.path.exists(static_dir):
 
 # FastAPI lifespan event handler for startup tasks
 async def ensure_indexes():
-    # Users: unique email, index on createdAt
+    """Create essential indexes for production-grade queries."""
+    logger = logging.getLogger(__name__)
+    
+    # ============ USERS COLLECTION ============
     await db["users"].create_index("email", unique=True)
     await db["users"].create_index("createdAt")
     await db["users"].create_index("phone")
+    logger.info("✓ Users indexes created")
     
-    # Token blacklist: TTL index on createdAt (7 days)
+    # ============ TOKEN BLACKLIST COLLECTION ============
     await db["token_blacklist"].create_index("createdAt", expireAfterSeconds=60*60*24*7)
+    logger.info("✓ Token blacklist indexes created")
+    
+    # ============ TENANTS COLLECTION ============
+    await db["tenants"].create_index("propertyId")
+    await db["tenants"].create_index("bedId")
+    await db["tenants"].create_index([("propertyId", 1), ("autoGeneratePayments", 1)])
+    logger.info("✓ Tenants indexes created")
+    
+    # ============ PAYMENTS COLLECTION ============
+    await db["payments"].create_index("propertyId")
+    await db["payments"].create_index("tenantId")
+    await db["payments"].create_index("status")
+    await db["payments"].create_index("dueDate")
+    await db["payments"].create_index([("propertyId", 1), ("status", 1)])
+    # Unique index to prevent duplicate payments (non-sparse to enforce uniqueness)
+    await db["payments"].create_index([("tenantId", 1), ("dueDate", 1)], unique=True)
+    logger.info("✓ Payments indexes created (including unique tenantId+dueDate)")
+    
+    # ============ BEDS COLLECTION ============
+    await db["beds"].create_index("propertyId")
+    await db["beds"].create_index("status")
+    logger.info("✓ Beds indexes created")
 
 
 @asynccontextmanager
@@ -46,33 +72,42 @@ async def lifespan(app):
     
     # Initialize APScheduler for background jobs
     scheduler = AsyncIOScheduler()
+    logger = logging.getLogger(__name__)
     
     # Import here to avoid circular imports
     from app.services.tenant_service import TenantService
     tenant_service = TenantService()
     
+    # Wrapper for scheduled job to add logging
+    async def generate_payments_job():
+        result = await tenant_service.generate_monthly_payments()
+        # Result already contains timing info - logged by service
+        return result
+    
     # Job 1: Generate monthly payments daily at 00:05 UTC
     # This ensures all tenants get their monthly payment created on the same day
     scheduler.add_job(
-        tenant_service.generate_monthly_payments,
+        generate_payments_job,
         trigger=CronTrigger(hour=0, minute=5, timezone="UTC"),
         id="generate_monthly_payments",
         name="Generate monthly payments for tenants",
         replace_existing=True,
-        max_instances=1  # Prevent concurrent executions
+        max_instances=1,  # Prevent concurrent executions
+        coalesce=True,     # Skip missed runs if delayed
+        misfire_grace_time=300  # Allow 5min grace period
     )
     
     scheduler.start()
     app.state.scheduler = scheduler
     
-    print("✓ Background scheduler initialized")
-    print("✓ Jobs registered: generate_monthly_payments (daily at 00:05 UTC)")
+    logger.info("✓ Background scheduler initialized")
+    logger.info("✓ Jobs registered: generate_monthly_payments (daily at 00:05 UTC)")
     
     yield
     
     # Shutdown scheduler
     scheduler.shutdown()
-    print("✓ Background scheduler shut down")
+    logger.info("✓ Background scheduler shut down")
 
 
 

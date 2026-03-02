@@ -18,6 +18,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useProperty } from '@/context/PropertyContext';
 import { propertyService } from '@/services/apiClient';
 import { useAuth } from '@/context/AuthContext';
+import UpgradeModal from '@/components/UpgradeModal';
 
 export default function PropertyFormScreen() {
   const { colors } = useTheme();
@@ -28,6 +29,7 @@ export default function PropertyFormScreen() {
   const [address, setAddress] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const handleSubmit = async () => {
     if (!name || !address) {
@@ -50,16 +52,21 @@ export default function PropertyFormScreen() {
       await refreshProperties();
       router.back();
     } catch (err: any) {
-      setError(err?.message || 'Failed to create property');
+      if (err?.code === 'SUBSCRIPTION_LIMIT_EXCEEDED') {
+        setShowUpgradeModal(true);
+      } else {
+        setError(err?.message || 'Failed to create property');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: colors.background.primary }]}
-      edges={['top', 'bottom']}>
+    <>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background.primary }]}
+        edges={['top', 'bottom']}>
       <View style={[styles.header, { backgroundColor: colors.white, borderBottomColor: colors.border.light }]}>
         <TouchableOpacity
           style={styles.backButton}
@@ -163,7 +170,13 @@ export default function PropertyFormScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+      </SafeAreaView>
+
+      <UpgradeModal
+        visible={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+      />
+    </>
   );
 }
 

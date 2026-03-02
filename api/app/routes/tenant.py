@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, status, Request
 from app.services.tenant_service import TenantService
+from app.services.subscription_enforcement import SubscriptionEnforcement
 from app.models.tenant_schema import TenantCreate, TenantUpdate
 
 router = APIRouter(prefix="/tenants", tags=["tenants"])
@@ -57,6 +58,11 @@ async def create_tenant(request: Request, tenant: TenantCreate):
     property_ids = getattr(request.state, "property_ids", [])
     if tenant.propertyId not in property_ids:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    
+    # Check subscription quota before creating tenant
+    user_id = getattr(request.state, "user_id", None)
+    await SubscriptionEnforcement.ensure_can_create_tenant(user_id, tenant.propertyId)
+    
     created = await tenant_service.create_tenant(tenant.model_dump(exclude_unset=True))
     return {"data": created.model_dump()}
 

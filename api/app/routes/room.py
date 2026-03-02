@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from app.services.room_service import RoomService
+from app.services.subscription_enforcement import SubscriptionEnforcement
 from app.models.room_schema import Room
 from app.database.mongodb import db
 
@@ -50,9 +51,14 @@ async def get_room(request: Request, room_id: str):
 
 @router.post("/")
 async def create_room(request: Request, room: Room):
+    user_id = getattr(request.state, "user_id", None)
     property_ids = getattr(request.state, "property_ids", [])
     if room.propertyId not in property_ids:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden: Property not accessible by user.")
+    
+    # Check subscription quota before creating room (30 rooms per property)
+    await SubscriptionEnforcement.ensure_can_create_room(user_id, room.propertyId)
+    
     created = await room_service.create_room(room.model_dump())
     return {"data": created.model_dump()}
 

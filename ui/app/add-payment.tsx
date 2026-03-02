@@ -22,6 +22,7 @@ import { paymentService, tenantService } from '@/services/apiClient';
 import type { Tenant, Payment } from '@/services/apiTypes';
 import EmptyState from '@/components/EmptyState';
 import DatePicker from '@/components/DatePicker';
+import UpgradeModal from '@/components/UpgradeModal';
 import { clearScreenCache } from '@/services/screenCache';
 
 const PAYMENT_STATUSES = [
@@ -64,6 +65,7 @@ export default function AddPaymentScreen() {
   const [showStatusPicker, setShowStatusPicker] = useState(false);
   const [showFrequencyPicker, setShowFrequencyPicker] = useState(false);
   const [showAnchorDayPicker, setShowAnchorDayPicker] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   useEffect(() => {
     if (joinDate) {
