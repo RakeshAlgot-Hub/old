@@ -57,30 +57,30 @@ proProperties=3
 proTenants=50
 proRooms=50
 proStaff=5
-proPrice=79
+proPrice=7900
 
 # PREMIUM PLAN
 premiumProperties=5
 premiumTenants=100
 premiumRooms=70
 premiumStaff=7
-premiumPrice=129
+premiumPrice=12900
 ```
 
 **To change pricing in production:**
 
-For example, to change Pro plan price from ₹0.79 to ₹1.29, just update:
+For example, to change Pro plan price from ₹79 to ₹129, just update:
 ```env
-proPrice=129
+proPrice=12900
 ```
 
-Price text is **generated automatically** from the price value (79 paise = ₹0.79, 129 paise = ₹1.29, etc.)
+Price text is **generated automatically** from the price value (7900 paise = ₹79, 12900 paise = ₹129, etc.)
 
 **If not set:** System uses default values
 ```
 Free: properties=1, tenants=20 (per property), rooms=30 (per property), staff=3 (per property), price=₹0
-Pro: properties=3, tenants=50 (per property), rooms=50 (per property), staff=5 (per property), price=₹0.79
-Premium: properties=5, tenants=100 (per property), rooms=70 (per property), staff=7 (per property), price=₹1.29
+Pro: properties=3, tenants=50 (per property), rooms=50 (per property), staff=5 (per property), price=₹79
+Premium: properties=5, tenants=100 (per property), rooms=70 (per property), staff=7 (per property), price=₹129
 ```
 
 **Enforcement Logic:**
@@ -94,4 +94,4 @@ Premium: properties=5, tenants=100 (per property), rooms=70 (per property), staf
 - `{plan}Tenants`: Max tenants per property
 - `{plan}Rooms`: Max rooms per property
 - `{plan}Staff`: Max staff members per property
-- `{plan}Price`: Price in paise (e.g., 79 = ₹0.79)
+- `{plan}Price`: Price in paise (e.g., 7900 = ₹79)

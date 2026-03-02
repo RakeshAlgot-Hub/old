@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 #   staff: Max staff PER property
 DEFAULT_SUBSCRIPTION_PLANS = {
     'free': {'properties': 1, 'tenants': 80, 'rooms': 30, 'staff': 3, 'price': 0},
-    'pro': {'properties': 3, 'tenants': 150, 'rooms': 50, 'staff': 5, 'price': 79},
-    'premium': {'properties': 5, 'tenants': 200, 'rooms': 70, 'staff': 7, 'price': 129},
+    'pro': {'properties': 3, 'tenants': 150, 'rooms': 50, 'staff': 5, 'price': 7900},
+    'premium': {'properties': 5, 'tenants': 200, 'rooms': 70, 'staff': 7, 'price': 12900},
 }
 
 def format_price_text(price_paise: int) -> str:
