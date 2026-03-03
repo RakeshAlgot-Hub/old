@@ -6,6 +6,7 @@ type CacheEntry<T> = {
 const cache = new Map<string, CacheEntry<unknown>>();
 
 export const cacheKeys = {
+  properties: () => 'properties:list',
   dashboard: (propertyId: string) => `dashboard:${propertyId}`,
   tenants: (propertyId: string, page: number, search: string, status: string) =>
     `tenants:${propertyId}:${page}:${search}:${status}`,

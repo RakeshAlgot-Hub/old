@@ -511,6 +511,10 @@ export const paymentService = {
       overdue: string;
     }>;
   },
+
+  async getPaymentMethods(): Promise<ApiResponse<{ data: string[] }>> {
+    return await request<{ data: string[] }>('GET', '/payments/methods', undefined, true) as ApiResponse<{ data: string[] }>;
+  },
 };
 
 export const subscriptionService = {

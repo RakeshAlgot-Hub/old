@@ -33,8 +33,7 @@ export default function TenantsScreen() {
   const router = useRouter();
   const { selectedProperty, selectedPropertyId, loading: propertyLoading } = useProperty();
   const [tenants, setTenants] = useState<Tenant[]>([]);
-  const [loading, setLoading] = useState(true);
-    const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
@@ -51,7 +50,6 @@ export default function TenantsScreen() {
   const fetchTenants = useCallback(async (page: number = 1, search: string = '', status: string = 'all') => {
     if (!selectedPropertyId) {
       setLoading(false);
-       setIsInitialLoad(false);
       return;
     }
 
@@ -62,7 +60,6 @@ export default function TenantsScreen() {
       setTotal(cachedResponse.meta?.total || 0);
       setError(null);
       setLoading(false);
-       setIsInitialLoad(false);
       return;
     }
 
@@ -88,19 +85,33 @@ export default function TenantsScreen() {
       }
     } finally {
       setLoading(false);
-       setIsInitialLoad(false);
     }
   }, [selectedPropertyId]);
 
   // Reset state when property changes
   useEffect(() => {
+    if (!selectedPropertyId || propertyLoading) {
+      return;
+    }
+
     setCurrentPage(1);
     setSearchQuery('');
     setSelectedStatus('all');
-    setTenants([]);
-    setTotal(0);
-     setLoading(true); // Ensure skeleton shows during fetch
-    if (selectedPropertyId && !propertyLoading) {
+
+    // Check for cached data first
+    const cacheKey = cacheKeys.tenants(selectedPropertyId, 1, '', 'all');
+    const cachedResponse = getScreenCache<PaginatedResponse<Tenant>>(cacheKey, TENANTS_CACHE_STALE_MS);
+    
+    if (cachedResponse) {
+      // Use cached data immediately - no skeleton needed
+      setTenants(cachedResponse.data || []);
+      setTotal(cachedResponse.meta?.total || 0);
+      setLoading(false);
+    } else {
+      // No cache - clear state and show skeleton
+      setTenants([]);
+      setTotal(0);
+      setLoading(true);
       fetchTenants(1, '', 'all');
     }
   }, [selectedPropertyId, propertyLoading, fetchTenants]);
@@ -188,7 +199,7 @@ export default function TenantsScreen() {
       <View style={styles.header}>
         <Text style={[styles.headerTitle, { color: colors.text.primary }]}>Tenants</Text>
         <Text style={{ fontSize: typography.fontSize.sm, fontWeight: typography.fontWeight.medium as any, color: colors.text.secondary }}>
-          {propertyLoading || isInitialLoad ? '0' : total} Total
+          {propertyLoading || (loading && tenants.length === 0) ? '0' : total} Total
         </Text>
       </View>
 
@@ -240,7 +251,7 @@ export default function TenantsScreen() {
             tintColor={colors.primary[500]}
           />
         }>
-          {propertyLoading || isInitialLoad ? (
+          {propertyLoading || (loading && tenants.length === 0) ? (
           <Skeleton height={200} count={3} />
         ) : (error && selectedProperty) ? (
           <ApiErrorCard error={error} onRetry={handleRetry} />
@@ -395,8 +406,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
   headerTitle: {
-    fontSize: typography.fontSize.md,
-    fontWeight: typography.fontWeight.semibold,
+    fontSize: typography.fontSize.xxxl,
+    fontWeight: typography.fontWeight.bold,
   },
     headerCount: {
       fontSize: typography.fontSize.sm,

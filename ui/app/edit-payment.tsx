@@ -24,11 +24,12 @@ import type { Payment } from '@/services/apiTypes';
 import ApiErrorCard from '@/components/ApiErrorCard';
 import { cacheKeys, clearScreenCache, getScreenCache, setScreenCache } from '@/services/screenCache';
 
-const PAYMENT_METHODS = ['Cash', 'UPI', 'Bank Transfer', 'Other'];
 const PAYMENT_STATUSES = [
   { value: 'paid', label: 'Paid' },
   { value: 'due', label: 'Due' },
 ];
+
+const DEFAULT_PAYMENT_METHODS = ['Cash', 'Online', 'Bank Transfer', 'UPI', 'Cheque'];
 
 const PAYMENT_DETAIL_CACHE_STALE_MS = 60 * 1000;
 
@@ -44,21 +45,21 @@ export default function EditPaymentScreen() {
   const [dueDate, setDueDate] = useState('');
   const [paidDate, setPaidDate] = useState('');
   const [method, setMethod] = useState('Cash');
+  const [paymentMethods, setPaymentMethods] = useState<string[]>(DEFAULT_PAYMENT_METHODS);
   const [status, setStatus] = useState<'paid' | 'due'>('paid');
   const [pendingStatus, setPendingStatus] = useState<'paid' | 'due' | null>(null);
-  const [isFullEditEnabled, setIsFullEditEnabled] = useState(false);
+  const [enablePaidDateEdit, setEnablePaidDateEdit] = useState(false);
+  const [enableDueDateEdit, setEnableDueDateEdit] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [fetchingPayment, setFetchingPayment] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [showMethodPicker, setShowMethodPicker] = useState(false);
   const [showStatusPicker, setShowStatusPicker] = useState(false);
   const [showStatusConfirmModal, setShowStatusConfirmModal] = useState(false);
 
   const [tenantName, setTenantName] = useState('');
-  const [roomNumber, setRoomNumber] = useState('');
 
   useEffect(() => {
     if (paymentId) {
@@ -68,13 +69,6 @@ export default function EditPaymentScreen() {
 
   const getEffectiveStatus = (paymentStatus: Payment['status']): 'paid' | 'due' => {
     return paymentStatus === 'paid' ? 'paid' : 'due';
-  };
-
-  const getMonthLabel = (dateValue?: string | null) => {
-    if (!dateValue) return 'Unknown Month';
-    const parsedDate = new Date(dateValue);
-    if (isNaN(parsedDate.getTime())) return 'Unknown Month';
-    return parsedDate.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
   };
 
   const getAmountNumberString = (amountValue?: string) => {
@@ -90,15 +84,8 @@ export default function EditPaymentScreen() {
     setMethod(payment.method || 'Cash');
     setStatus(getEffectiveStatus(payment.status));
     setTenantName(payment.tenantName || '');
-    setRoomNumber(payment.roomNumber || 'N/A');
-  };
-
-  const sortPaymentsByMonth = (payments: Payment[]) => {
-    return [...payments].sort((a, b) => {
-      const aTime = new Date(a.dueDate || a.createdAt).getTime();
-      const bTime = new Date(b.dueDate || b.createdAt).getTime();
-      return bTime - aTime;
-    });
+    setEnablePaidDateEdit(false);
+    setEnableDueDateEdit(false);
   };
 
   const fetchPayment = async () => {
@@ -119,19 +106,12 @@ export default function EditPaymentScreen() {
         setScreenCache(paymentCacheKey, initialPayment);
       }
 
-      let history = [initialPayment];
-      if (initialPayment.propertyId && initialPayment.tenantId) {
-        const historyRes = await paymentService.getPayments(initialPayment.propertyId, {
-          tenantId: initialPayment.tenantId,
-          page: 1,
-          pageSize: 100,
-        });
-        history = historyRes.data && historyRes.data.length > 0 ? historyRes.data : [initialPayment];
-      }
+      // Use default payment methods or fetch from backend if API is available
+      // For now, use the predefined list from backend enum
+      setPaymentMethods(DEFAULT_PAYMENT_METHODS);
 
-      const sortedHistory = sortPaymentsByMonth(history);
-      setPaymentHistory(sortedHistory);
-      applyPaymentToForm(sortedHistory[0]);
+      setPaymentHistory([initialPayment]);
+      applyPaymentToForm(initialPayment);
     } catch (err: any) {
       setError(err?.message || 'Failed to load payment');
     } finally {
@@ -141,12 +121,6 @@ export default function EditPaymentScreen() {
 
   const handleRetry = () => {
     fetchPayment();
-  };
-
-  const handleMonthSelection = (payment: Payment) => {
-    applyPaymentToForm(payment);
-    setIsFullEditEnabled(false);
-    setShowMonthPicker(false);
   };
 
   const handleStatusSelection = (newStatus: 'paid' | 'due') => {
@@ -187,26 +161,30 @@ export default function EditPaymentScreen() {
 
   const handleSubmit = async () => {
     if (!selectedPaymentId) {
-      setError('Payment month is missing');
+      setError('Payment is missing');
       return;
     }
 
-    if (!method) {
-      setError('Payment method is required');
+    if (!amount || !status || !method) {
+      setError('Amount, status, and payment method are required');
       return;
     }
 
-    if (isFullEditEnabled) {
-      if (!amount || !dueDate || !method || !status) {
-        setError('Amount, due date, method, and status are required');
-        return;
-      }
+    const amountNum = parseFloat(amount);
+    if (isNaN(amountNum) || amountNum <= 0) {
+      setError('Please enter a valid amount greater than 0');
+      return;
+    }
 
-      const amountNum = parseFloat(amount);
-      if (isNaN(amountNum) || amountNum <= 0) {
-        setError('Please enter a valid amount greater than 0');
-        return;
-      }
+    // Validate date if editing is enabled
+    if (status === 'paid' && enablePaidDateEdit && !paidDate) {
+      setError('Paid date is required when editing');
+      return;
+    }
+
+    if (status === 'due' && enableDueDateEdit && !dueDate) {
+      setError('Due date is required when editing');
+      return;
     }
 
     try {
@@ -216,17 +194,17 @@ export default function EditPaymentScreen() {
       const updateData: any = {
         status,
         method,
+        amount: `₹${amountNum.toLocaleString()}`,
       };
 
-      if (isFullEditEnabled) {
-        const amountNum = parseFloat(amount);
-        updateData.amount = `₹${amountNum.toLocaleString()}`;
-        updateData.dueDate = dueDate;
-        updateData.method = method;
+      // Only include date if editing is enabled
+      if (status === 'paid' && enablePaidDateEdit && paidDate) {
+        updateData.paidDate = paidDate;
       }
 
-      // If changing to paid and there's no paidDate, backend will auto-set it
-      // If changing away from paid, let backend handle it (paidDate can remain)
+      if (status === 'due' && enableDueDateEdit && dueDate) {
+        updateData.dueDate = dueDate;
+      }
 
       await paymentService.updatePayment(selectedPaymentId, updateData);
 
@@ -244,11 +222,16 @@ export default function EditPaymentScreen() {
   };
 
   const isFormValid = () => {
-    if (!status || !selectedPaymentId || !method) return false;
+    if (!status || !selectedPaymentId || !amount || !method) return false;
+    
+    const amountNum = parseFloat(amount);
+    if (isNaN(amountNum) || amountNum <= 0) return false;
 
-    if (!isFullEditEnabled) return true;
+    // Validate date if editing is enabled
+    if (status === 'paid' && enablePaidDateEdit && !paidDate) return false;
+    if (status === 'due' && enableDueDateEdit && !dueDate) return false;
 
-    return amount.trim() && dueDate && method && !isNaN(parseFloat(amount)) && parseFloat(amount) > 0;
+    return true;
   };
 
   if (fetchingPayment) {
@@ -308,7 +291,7 @@ export default function EditPaymentScreen() {
             {error && <ApiErrorCard error={error} onRetry={handleRetry} />}
 
             <View style={styles.inputContainer}>
-              <Text style={[styles.label, { color: colors.text.primary }]}>Tenant</Text>
+              <Text style={[styles.label, { color: colors.text.primary }]}>Tenant Name</Text>
               <View
                 style={[
                   styles.disabledInput,
@@ -324,163 +307,50 @@ export default function EditPaymentScreen() {
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={[styles.label, { color: colors.text.primary }]}>Room</Text>
-              <View
+              <Text style={[styles.label, { color: colors.text.primary }]}>Amount *</Text>
+              <TextInput
                 style={[
-                  styles.disabledInput,
+                  styles.input,
                   {
-                    backgroundColor: colors.background.tertiary,
+                    backgroundColor: colors.background.secondary,
+                    color: colors.text.primary,
                     borderColor: colors.border.medium,
                   },
-                ]}>
-                <Text style={[styles.disabledText, { color: colors.text.secondary }]}>
-                  {roomNumber}
-                </Text>
-              </View>
+                ]}
+                placeholder="e.g., 5000"
+                keyboardType="numeric"
+                placeholderTextColor={colors.text.tertiary}
+                value={amount}
+                onChangeText={setAmount}
+                editable={!loading}
+              />
             </View>
 
             <View style={styles.inputContainer}>
-              <View style={styles.toggleRow}>
-                <View style={styles.toggleTextContainer}>
-                  <Text style={[styles.label, { color: colors.text.primary, marginBottom: 0 }]}>Enable Full Edit</Text>
-                  <Text style={[styles.toggleHint, { color: colors.text.secondary }]}>Off: status only • On: edit all fields</Text>
-                  <Text style={[styles.toggleHint, { color: colors.text.tertiary }]}>Status-only mode is safer for routine updates.</Text>
-                </View>
-                <Switch
-                  value={isFullEditEnabled}
-                  onValueChange={setIsFullEditEnabled}
-                  disabled={loading}
-                  thumbColor={isFullEditEnabled ? colors.primary[500] : colors.text.tertiary}
-                  trackColor={{ false: colors.border.medium, true: colors.primary[100] }}
-                />
-              </View>
-            </View>
-
-            {isFullEditEnabled ? (
-              <>
-                <View style={styles.inputContainer}>
-                  <Text style={[styles.label, { color: colors.text.primary }]}>Payment Month *</Text>
-                  <TouchableOpacity
-                    style={[
-                      styles.pickerButton,
-                      {
-                        backgroundColor: colors.background.secondary,
-                        borderColor: colors.border.medium,
-                      },
-                    ]}
-                    onPress={() => setShowMonthPicker(true)}
-                    activeOpacity={0.7}
-                    disabled={loading || paymentHistory.length === 0}>
-                    <Text
-                      style={[
-                        styles.pickerButtonText,
-                        {
-                          color: selectedPaymentId ? colors.text.primary : colors.text.tertiary,
-                        },
-                      ]}>
-                      {selectedPaymentId
-                        ? getMonthLabel(paymentHistory.find(item => item.id === selectedPaymentId)?.dueDate)
-                        : 'Select Month'}
-                    </Text>
-                    <ChevronDown size={20} color={colors.text.tertiary} />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.inputContainer}>
-                  <Text style={[styles.label, { color: colors.text.primary }]}>Amount *</Text>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      {
-                        backgroundColor: colors.background.secondary,
-                        color: colors.text.primary,
-                        borderColor: colors.border.medium,
-                      },
-                    ]}
-                    placeholder="e.g., 5000"
-                    keyboardType="numeric"
-                    placeholderTextColor={colors.text.tertiary}
-                    value={amount}
-                    onChangeText={setAmount}
-                    editable={!loading}
-                  />
-                </View>
-
-                <View style={styles.inputContainer}>
-                  <Text style={[styles.label, { color: colors.text.primary }]}>Due Date *</Text>
-                  <View style={styles.dateInputContainer}>
-                    <Calendar size={20} color={colors.text.tertiary} style={styles.dateIcon} />
-                    <TextInput
-                      style={[
-                        styles.dateInput,
-                        {
-                          backgroundColor: colors.background.secondary,
-                          color: colors.text.primary,
-                          borderColor: colors.border.medium,
-                        },
-                      ]}
-                      placeholder="YYYY-MM-DD"
-                      placeholderTextColor={colors.text.tertiary}
-                      value={dueDate}
-                      onChangeText={setDueDate}
-                      editable={!loading}
-                    />
-                  </View>
-                </View>
-
-                <View style={styles.inputContainer}>
-                  <Text style={[styles.label, { color: colors.text.primary }]}>Payment Method *</Text>
-                  <TouchableOpacity
-                    style={[
-                      styles.pickerButton,
-                      {
-                        backgroundColor: colors.background.secondary,
-                        borderColor: colors.border.medium,
-                      },
-                    ]}
-                    onPress={() => setShowMethodPicker(true)}
-                    activeOpacity={0.7}
-                    disabled={loading}>
-                    <Text
-                      style={[
-                        styles.pickerButtonText,
-                        {
-                          color: method ? colors.text.primary : colors.text.tertiary,
-                        },
-                      ]}>
-                      {method || 'Select Method'}
-                    </Text>
-                    <ChevronDown size={20} color={colors.text.tertiary} />
-                  </TouchableOpacity>
-                </View>
-              </>
-            ) : (
-              <View style={styles.inputContainer}>
-                <Text style={[styles.label, { color: colors.text.primary }]}>Paid Method</Text>
-                <TouchableOpacity
+              <Text style={[styles.label, { color: colors.text.primary }]}>Payment Method *</Text>
+              <TouchableOpacity
+                style={[
+                  styles.pickerButton,
+                  {
+                    backgroundColor: colors.background.secondary,
+                    borderColor: colors.border.medium,
+                  },
+                ]}
+                onPress={() => setShowMethodPicker(true)}
+                activeOpacity={0.7}
+                disabled={loading}>
+                <Text
                   style={[
-                    styles.pickerButton,
+                    styles.pickerButtonText,
                     {
-                      backgroundColor: colors.background.secondary,
-                      borderColor: colors.border.medium,
+                      color: method ? colors.text.primary : colors.text.tertiary,
                     },
-                  ]}
-                  onPress={() => setShowMethodPicker(true)}
-                  activeOpacity={0.7}
-                  disabled={loading}>
-                  <Text
-                    style={[
-                      styles.pickerButtonText,
-                      {
-                        color: method ? colors.text.primary : colors.text.tertiary,
-                      },
-                    ]}>
-                    {method || 'Select Method'}
-                  </Text>
-                  <ChevronDown size={20} color={colors.text.tertiary} />
-                </TouchableOpacity>
-              </View>
-            )}
+                  ]}>
+                  {method || 'Select Method'}
+                </Text>
+                <ChevronDown size={20} color={colors.text.tertiary} />
+              </TouchableOpacity>
+            </View>
 
             <View style={styles.inputContainer}>
               <Text style={[styles.label, { color: colors.text.primary }]}>Status *</Text>
@@ -508,21 +378,87 @@ export default function EditPaymentScreen() {
               </TouchableOpacity>
             </View>
 
-            {isFullEditEnabled && (
+            {status === 'paid' && (
               <View style={styles.inputContainer}>
-                <Text style={[styles.label, { color: colors.text.primary }]}>Paid Date (Reference)</Text>
-                <View
-                  style={[
-                    styles.disabledInput,
-                    {
-                      backgroundColor: colors.background.tertiary,
-                      borderColor: colors.border.medium,
-                    },
-                  ]}>
-                  <Text style={[styles.disabledText, { color: colors.text.secondary }]}>
-                    {paidDate || '-'}
-                  </Text>
+                <View style={styles.toggleRow}>
+                  <View style={styles.toggleTextContainer}>
+                    <Text style={[styles.label, { color: colors.text.primary, marginBottom: 0 }]}>Edit Paid Date</Text>
+                    <Text style={[styles.toggleHint, { color: colors.text.secondary }]}>
+                      {paidDate ? `Current: ${new Date(paidDate).toLocaleDateString('en-IN')}` : 'No date set'}
+                    </Text>
+                  </View>
+                  <Switch
+                    value={enablePaidDateEdit}
+                    onValueChange={setEnablePaidDateEdit}
+                    disabled={loading}
+                    thumbColor={enablePaidDateEdit ? colors.primary[500] : colors.text.tertiary}
+                    trackColor={{ false: colors.border.medium, true: colors.primary[100] }}
+                  />
                 </View>
+                {enablePaidDateEdit && (
+                  <View style={[styles.inputContainer, { marginTop: spacing.sm, marginBottom: 0 }]}>
+                    <View style={styles.dateInputContainer}>
+                      <Calendar size={20} color={colors.text.tertiary} style={styles.dateIcon} />
+                      <TextInput
+                        style={[
+                          styles.dateInput,
+                          {
+                            backgroundColor: colors.background.secondary,
+                            color: colors.text.primary,
+                            borderColor: colors.border.medium,
+                          },
+                        ]}
+                        placeholder="YYYY-MM-DD"
+                        placeholderTextColor={colors.text.tertiary}
+                        value={paidDate}
+                        onChangeText={setPaidDate}
+                        editable={!loading}
+                      />
+                    </View>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {status === 'due' && (
+              <View style={styles.inputContainer}>
+                <View style={styles.toggleRow}>
+                  <View style={styles.toggleTextContainer}>
+                    <Text style={[styles.label, { color: colors.text.primary, marginBottom: 0 }]}>Edit Due Date</Text>
+                    <Text style={[styles.toggleHint, { color: colors.text.secondary }]}>
+                      {dueDate ? `Current: ${new Date(dueDate).toLocaleDateString('en-IN')}` : 'No date set'}
+                    </Text>
+                  </View>
+                  <Switch
+                    value={enableDueDateEdit}
+                    onValueChange={setEnableDueDateEdit}
+                    disabled={loading}
+                    thumbColor={enableDueDateEdit ? colors.primary[500] : colors.text.tertiary}
+                    trackColor={{ false: colors.border.medium, true: colors.primary[100] }}
+                  />
+                </View>
+                {enableDueDateEdit && (
+                  <View style={[styles.inputContainer, { marginTop: spacing.sm, marginBottom: 0 }]}>
+                    <View style={styles.dateInputContainer}>
+                      <Calendar size={20} color={colors.text.tertiary} style={styles.dateIcon} />
+                      <TextInput
+                        style={[
+                          styles.dateInput,
+                          {
+                            backgroundColor: colors.background.secondary,
+                            color: colors.text.primary,
+                            borderColor: colors.border.medium,
+                          },
+                        ]}
+                        placeholder="YYYY-MM-DD"
+                        placeholderTextColor={colors.text.tertiary}
+                        value={dueDate}
+                        onChangeText={setDueDate}
+                        editable={!loading}
+                      />
+                    </View>
+                  </View>
+                )}
               </View>
             )}
 
@@ -549,69 +485,13 @@ export default function EditPaymentScreen() {
                 <ActivityIndicator color={colors.white} size="small" />
               ) : (
                 <Text style={[styles.submitButtonText, { color: colors.white }]}>
-                  {isOnline ? (isFullEditEnabled ? 'Update Payment' : 'Update Status') : 'Offline'}
+                  {isOnline ? 'Update Payment' : 'Offline'}
                 </Text>
               )}
             </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-
-      <Modal
-        visible={showMonthPicker}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowMonthPicker(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContainer, { backgroundColor: colors.background.secondary }]}>
-            <View style={[styles.modalHeader, { borderBottomColor: colors.border.light }]}>
-              <Text style={[styles.modalTitle, { color: colors.text.primary }]}>Select Payment Month</Text>
-            </View>
-
-            <ScrollView style={styles.modalScrollView}>
-              {paymentHistory.map((payment, index) => {
-                const effectiveStatus = getEffectiveStatus(payment.status);
-                const amountText = payment.amount || '-';
-                return (
-                  <TouchableOpacity
-                    key={payment.id || index}
-                    style={[
-                      styles.modalOption,
-                      { borderBottomColor: colors.border.light },
-                    ]}
-                    onPress={() => handleMonthSelection(payment)}
-                    activeOpacity={0.7}>
-                    <View style={styles.monthOptionHeader}>
-                      <Text
-                        style={[
-                          styles.modalOptionText,
-                          {
-                            color: selectedPaymentId === payment.id ? colors.primary[500] : colors.text.primary,
-                            fontWeight: selectedPaymentId === payment.id
-                              ? typography.fontWeight.semibold
-                              : typography.fontWeight.regular,
-                          },
-                        ]}>
-                        {getMonthLabel(payment.dueDate)}
-                      </Text>
-                      <Text style={[styles.monthOptionMeta, { color: colors.text.secondary }]}>
-                        {amountText} • {effectiveStatus === 'paid' ? 'Paid' : 'Due'}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-
-            <TouchableOpacity
-              style={[styles.modalCloseButton, { borderTopColor: colors.border.light }]}
-              onPress={() => setShowMonthPicker(false)}
-              activeOpacity={0.7}>
-              <Text style={[styles.modalCloseButtonText, { color: colors.text.secondary }]}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
 
       <Modal
         visible={showMethodPicker}
@@ -627,7 +507,7 @@ export default function EditPaymentScreen() {
             </View>
 
             <ScrollView style={styles.modalScrollView}>
-              {PAYMENT_METHODS.map((m, index) => (
+              {paymentMethods.map((m, index) => (
                 <TouchableOpacity
                   key={index}
                   style={[
@@ -950,12 +830,6 @@ const styles = StyleSheet.create({
   },
   modalOptionText: {
     fontSize: typography.fontSize.md,
-  },
-  monthOptionHeader: {
-    gap: spacing.xs,
-  },
-  monthOptionMeta: {
-    fontSize: typography.fontSize.sm,
   },
   modalCloseButton: {
     padding: spacing.lg,

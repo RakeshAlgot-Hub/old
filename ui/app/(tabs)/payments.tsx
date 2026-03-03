@@ -43,7 +43,6 @@ export default function PaymentsScreen() {
   const router = useRouter();
   const { selectedProperty, selectedPropertyId, loading: propertyLoading } = useProperty();
   const [payments, setPayments] = useState<Payment[]>([]);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
@@ -79,7 +78,6 @@ export default function PaymentsScreen() {
       setPayments([]);
       setTotal(0);
       setError(null);
-      setIsInitialLoad(false);
       setIsRefreshing(false);
       return;
     }
@@ -91,7 +89,6 @@ export default function PaymentsScreen() {
       setPayments(cachedData);
       setTotal(cachedResponse.meta?.total || cachedData.length);
       setError(null);
-      setIsInitialLoad(false);
       setIsRefreshing(false);
       return;
     }
@@ -119,7 +116,6 @@ export default function PaymentsScreen() {
       }
       setPayments([]);
     } finally {
-      setIsInitialLoad(false);
       setIsRefreshing(false);
     }
   };
@@ -139,8 +135,26 @@ export default function PaymentsScreen() {
 
   // Refetch payments when month changes (and resolve empty-property initial state)
   useEffect(() => {
-    if (!propertyLoading) {
-      fetchPayments();
+    if (!propertyLoading && selectedPropertyId) {
+      // Check cache synchronously first to avoid skeleton flash
+      const cacheKey = cacheKeys.payments(selectedPropertyId, monthKey);
+      const cachedResponse = getScreenCache<PaginatedResponse<Payment>>(cacheKey, PAYMENTS_CACHE_STALE_MS);
+      
+      if (cachedResponse) {
+        // Use cached data immediately
+        setPayments(cachedResponse.data || []);
+        setTotal(cachedResponse.meta?.total || 0);
+        setError(null);
+        setIsRefreshing(false);
+      } else {
+        // No cache - fetch data
+        fetchPayments();
+      }
+    } else if (!selectedPropertyId && !propertyLoading) {
+      setPayments([]);
+      setTotal(0);
+      setError(null);
+      setIsRefreshing(false);
     }
   }, [monthKey, selectedPropertyId, propertyLoading]);
 
@@ -239,7 +253,7 @@ export default function PaymentsScreen() {
   };
 
   const stats = computeStats();
-  const isLoadingState = propertyLoading || (isInitialLoad && !!selectedPropertyId);
+  const isLoadingState = propertyLoading || (isRefreshing && payments.length === 0);
 
   return (
     <ScreenContainer edges={['top']}>

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, Literal
+from typing import Optional, Literal, Union
 from datetime import datetime, date
 from enum import Enum
 
@@ -37,11 +37,16 @@ class Payment(PaymentBase):
 
 
 class PaymentUpdate(BaseModel):
+    """
+    Payment update model for PATCH requests.
+    All fields are optional - only provided fields will be updated.
+    Dates can be provided as date objects or ISO string format.
+    """
     tenantId: Optional[str] = None
     propertyId: Optional[str] = None
     bed: Optional[str] = None
     amount: Optional[str] = None
     status: Optional[str] = None
-    dueDate: Optional[date] = None
-    paidDate: Optional[date] = None
+    dueDate: Optional[Union[str, date]] = None  # Can be string (ISO format) or date object
+    paidDate: Optional[Union[str, date]] = None  # Can be string (ISO format) or date object
     method: Optional[str] = None

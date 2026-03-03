@@ -84,15 +84,29 @@ class PaymentService:
             return None
         update_data = {k: v for k, v in payment_update.model_dump().items() if v is not None}
         
-        # Auto-set paidDate when status changes to "paid" (if not already provided)
+        # Auto-set paidDate when status changes to "paid" and paidDate is not provided
+        # This handles the case where user changes status to paid but hasn't edited the date
         if update_data.get("status") == "paid" and "paidDate" not in update_data:
-            update_data["paidDate"] = date_type.today().isoformat()
+            # Only auto-set if there's no existing paidDate or user is changing status
+            if not payment.get("paidDate"):
+                update_data["paidDate"] = date_type.today().isoformat()
+        
+        # If status is changing from paid to due, keep the paidDate as reference
+        # User can edit it if needed
         
         # Convert date objects to ISO string for MongoDB storage
         if update_data.get("dueDate") and hasattr(update_data["dueDate"], 'isoformat'):
             update_data["dueDate"] = update_data["dueDate"].isoformat()
         if update_data.get("paidDate") and hasattr(update_data["paidDate"], 'isoformat'):
             update_data["paidDate"] = update_data["paidDate"].isoformat()
+        
+        # Handle string dates (from frontend)
+        if update_data.get("dueDate") and isinstance(update_data["dueDate"], str):
+            # Already in ISO format, keep as is
+            pass
+        if update_data.get("paidDate") and isinstance(update_data["paidDate"], str):
+            # Already in ISO format, keep as is
+            pass
         
         update_data["updatedAt"] = datetime.now(timezone.utc)
         await self.collection.update_one({"_id": ObjectId(payment_id)}, {"$set": update_data})

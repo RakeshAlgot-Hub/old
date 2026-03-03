@@ -110,6 +110,9 @@ export default function DashboardScreen() {
 
         lastFocusRefreshRef.current = now;
         fetchDashboardData();
+      } else if (!propertyLoading && !selectedPropertyId) {
+        // If property loading is done but there are no properties, set loading to false
+        setLoading(false);
       }
     }, [selectedPropertyId, propertyLoading, dashboardData])
   );

@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Body, Request, Query
 from typing import List
 from datetime import datetime, date
 from bson import ObjectId
-from ..models.payment_schema import Payment, PaymentCreate,PaymentUpdate
+from ..models.payment_schema import Payment, PaymentCreate, PaymentUpdate, PaymentMethod
 
 from ..services.payment_service import PaymentService
 
@@ -60,6 +60,20 @@ async def delete_payment(request: Request, payment_id: str):
         raise HTTPException(status_code=404, detail="Payment not found")
     
     return {"success": True, "paymentId": payment_id}
+
+@router.get("/methods", response_model=dict)
+async def get_payment_methods():
+    """
+    Get available payment methods.
+    Returns a list of payment method options from the PaymentMethod enum.
+    """
+    methods = [method.value for method in PaymentMethod]
+    return {"data": methods}
+
+@router.get("/stats", response_model=dict)
+async def payment_stats(request: Request):
+    """Get payment statistics for the user's properties."""
+    return await payment_service.get_payment_stats()
 
 @router.get("", response_model=dict)
 async def list_payments(
@@ -271,11 +285,6 @@ async def get_payment(request: Request, payment_id: str):
             pass
     
     return Payment(**payment_dict)
-
-@router.get("/stats", response_model=dict)
-async def payment_stats(request: Request):
-    # Optionally, stats could be filtered by property_ids if needed
-    return await payment_service.get_payment_stats()
 
 @router.post("/admin/generate-monthly", response_model=dict)
 async def generate_monthly_payments_manual(request: Request):
