@@ -44,10 +44,32 @@ async def ensure_indexes():
     await db["token_blacklist"].create_index("createdAt", expireAfterSeconds=60*60*24*7)
     logger.info("✓ Token blacklist indexes created")
     
+    # ============ PROPERTIES COLLECTION ============
+    await db["properties"].create_index("ownerIds")
+    await db["properties"].create_index("createdAt")
+    await db["properties"].create_index("active")
+    await db["properties"].create_index([("ownerIds", 1), ("active", 1)])
+    logger.info("✓ Properties indexes created")
+    
+    # ============ ROOMS COLLECTION ============
+    await db["rooms"].create_index("propertyId")
+    await db["rooms"].create_index("active")
+    await db["rooms"].create_index([("propertyId", 1), ("active", 1)])
+    logger.info("✓ Rooms indexes created")
+    
+    # ============ BEDS COLLECTION ============
+    await db["beds"].create_index("propertyId")
+    await db["beds"].create_index("roomId")
+    await db["beds"].create_index("status")
+    await db["beds"].create_index([("propertyId", 1), ("status", 1)])
+    logger.info("✓ Beds indexes created")
+    
     # ============ TENANTS COLLECTION ============
     await db["tenants"].create_index("propertyId")
     await db["tenants"].create_index("bedId")
+    await db["tenants"].create_index("status")
     await db["tenants"].create_index([("propertyId", 1), ("autoGeneratePayments", 1)])
+    await db["tenants"].create_index([("propertyId", 1), ("status", 1)])
     logger.info("✓ Tenants indexes created")
     
     # ============ PAYMENTS COLLECTION ============
@@ -60,17 +82,35 @@ async def ensure_indexes():
     await db["payments"].create_index([("tenantId", 1), ("dueDate", 1)], unique=True)
     logger.info("✓ Payments indexes created (including unique tenantId+dueDate)")
     
-    # ============ BEDS COLLECTION ============
-    await db["beds"].create_index("propertyId")
-    await db["beds"].create_index("status")
-    logger.info("✓ Beds indexes created")
-    
     # ============ STAFF COLLECTION ============
     await db["staff"].create_index("propertyId")
     await db["staff"].create_index("role")
     await db["staff"].create_index("status")
     await db["staff"].create_index([("propertyId", 1), ("archived", 1)])
     logger.info("✓ Staff indexes created")
+    
+    # ============ SUBSCRIPTIONS COLLECTION ============
+    await db["subscriptions"].create_index("ownerId", unique=True)
+    await db["subscriptions"].create_index("planType")
+    await db["subscriptions"].create_index("status")
+    await db["subscriptions"].create_index("createdAt")
+    logger.info("✓ Subscriptions indexes created")
+    
+    # ============ EMAIL OTP COLLECTION ============
+    await db["email_otps"].create_index("email")
+    await db["email_otps"].create_index("createdAt", expireAfterSeconds=60*10)  # Auto-delete after 10 minutes
+    logger.info("✓ Email OTP indexes created (TTL: 10 minutes)")
+    
+    # ============ OTP ATTEMPTS COLLECTION ============
+    await db["otp_attempts"].create_index("email")
+    await db["otp_attempts"].create_index("createdAt", expireAfterSeconds=60*60)  # Auto-delete after 1 hour
+    logger.info("✓ OTP Attempts indexes created (TTL: 1 hour)")
+    
+    # ============ RAZORPAY ORDERS COLLECTION ============
+    await db["razorpay_orders"].create_index("order_id", unique=True)
+    await db["razorpay_orders"].create_index("propertyId")
+    await db["razorpay_orders"].create_index("createdAt")
+    logger.info("✓ Razorpay Orders indexes created")
 
 
 @asynccontextmanager

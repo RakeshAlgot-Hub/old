@@ -8,6 +8,8 @@ import {
   RefreshControl,
   StatusBar,
   Dimensions,
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,11 +20,12 @@ import FAB from '@/components/FAB';
 import EmptyState from '@/components/EmptyState';
 import Skeleton from '@/components/Skeleton';
 import ApiErrorCard from '@/components/ApiErrorCard';
-import { ChevronLeft, Building2, MapPin, Trash2, Edit, Archive, Plus } from 'lucide-react-native';
-import { spacing, typography, radius } from '@/theme';
+import { ChevronLeft, Building2, MapPin, Trash2, Edit, Archive, Plus, AlertTriangle, X } from 'lucide-react-native';
+import { spacing, typography, radius, shadows } from '@/theme';
 import { useTheme } from '@/context/ThemeContext';
 import { useProperty } from '@/context/PropertyContext';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { propertyService } from '@/services/apiClient';
 
 export default function ManagePropertiesScreen() {
   const { colors } = useTheme();
@@ -31,9 +34,11 @@ export default function ManagePropertiesScreen() {
   const { properties, loading, refreshProperties } = useProperty();
   const isOnline = useNetworkStatus();
   const [showArchiveWarning, setShowArchiveWarning] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState<any>(null);
   const [warningAction, setWarningAction] = useState<'edit' | 'delete' | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     refreshProperties();
@@ -58,8 +63,8 @@ export default function ManagePropertiesScreen() {
       setWarningAction('edit');
       setShowArchiveWarning(true);
     } else {
-      // Navigate to edit screen (not implemented yet)
-      console.log('Edit property:', property);
+      // Navigate to edit screen with propertyId
+      router.push(`/property-form?propertyId=${property.id}`);
     }
   };
 
@@ -69,8 +74,27 @@ export default function ManagePropertiesScreen() {
       setWarningAction('delete');
       setShowArchiveWarning(true);
     } else {
-      // Show delete confirmation (not implemented yet)
-      console.log('Delete property:', property);
+      // Show delete confirmation
+      setSelectedProperty(property);
+      setShowDeleteConfirm(true);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!selectedProperty) return;
+
+    try {
+      setDeleting(true);
+      await propertyService.deleteProperty(selectedProperty.id);
+      // Refresh the properties list
+      await refreshProperties();
+      setShowDeleteConfirm(false);
+      setSelectedProperty(null);
+    } catch (error) {
+      console.error('Error deleting property:', error);
+      // Show error message
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -136,7 +160,7 @@ export default function ManagePropertiesScreen() {
         }>
         {loading ? (
           <View style={styles.skeletonContainer}>
-            <Skeleton height={180} count={3} borderRadius={radius.lg} />
+            <Skeleton height={180} count={3} />
           </View>
         ) : properties.length === 0 ? (
           <View style={styles.emptyContainer}>
@@ -153,12 +177,10 @@ export default function ManagePropertiesScreen() {
             {properties.map((property, index) => (
               <Card
                 key={index}
-                style={[
-                  styles.propertyCard,
-                  {
-                    borderColor: property.active === false ? colors.warning[200] : colors.border.light,
-                  },
-                ]}>
+                style={{
+                  ...styles.propertyCard,
+                  borderColor: property.active === false ? colors.warning[200] : colors.border.light,
+                } as any}>
                 {/* Card Header with Icon and Badge */}
                 <View style={styles.cardHeader}>
                   <View style={[styles.iconContainer, { backgroundColor: colors.primary[50] }]}>
@@ -282,6 +304,126 @@ export default function ManagePropertiesScreen() {
           setSelectedProperty(null);
         }}
       />
+
+      <Modal visible={showDeleteConfirm} transparent animationType="fade">
+        <View style={[styles.overlay, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
+          <View style={[styles.deleteModal, { backgroundColor: colors.white }]}>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => {
+                setShowDeleteConfirm(false);
+                setSelectedProperty(null);
+              }}
+            >
+              <X size={24} color={colors.text.primary} />
+            </TouchableOpacity>
+
+            <View style={[styles.deleteIconContainer, { backgroundColor: colors.danger[50] }]}>
+              <AlertTriangle size={48} color={colors.danger[500]} />
+            </View>
+
+            <Text style={[styles.deleteTitle, { color: colors.text.primary }]}>
+              Delete Property?
+            </Text>
+
+            <Text style={[styles.deleteDescription, { color: colors.text.secondary }]}>
+              This action cannot be undone. All data associated with this property will be permanently deleted.
+            </Text>
+
+            <Card
+              style={{
+                ...styles.deleteWarningCard,
+                backgroundColor: colors.danger[50],
+              } as any}
+            >
+              <View style={styles.warningHeader}>
+                <AlertTriangle size={16} color={colors.danger[500]} />
+                <Text style={[styles.warningTitle, { color: colors.danger[700] }]}>
+                  Data that will be deleted:
+                </Text>
+              </View>
+              <View style={styles.warningList}>
+                <WarningItem
+                  text="All tenants"
+                  colors={colors}
+                />
+                <WarningItem
+                  text="All rooms"
+                  colors={colors}
+                />
+                <WarningItem
+                  text="All beds"
+                  colors={colors}
+                />
+                <WarningItem
+                  text="All payments"
+                  colors={colors}
+                />
+                <WarningItem
+                  text="All payment history"
+                  colors={colors}
+                />
+              </View>
+            </Card>
+
+            <View style={styles.deleteButtonContainer}>
+              <TouchableOpacity
+                style={[styles.cancelButton, { borderColor: colors.border.light }]}
+                onPress={() => {
+                  setShowDeleteConfirm(false);
+                  setSelectedProperty(null);
+                }}
+                disabled={deleting}
+              >
+                <Text style={[styles.cancelButtonText, { color: colors.text.primary }]}>
+                  Cancel
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.deleteButtonConfirm,
+                  {
+                    backgroundColor: colors.danger[500],
+                    opacity: deleting ? 0.6 : 1,
+                  },
+                ]}
+                onPress={handleConfirmDelete}
+                disabled={deleting}
+              >
+                {deleting ? (
+                  <ActivityIndicator color={colors.white} size="small" />
+                ) : (
+                  <>
+                    <Trash2 size={18} color={colors.white} strokeWidth={2} />
+                    <Text style={[styles.deleteButtonText, { color: colors.white }]}>
+                      Delete Property
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+interface WarningItemProps {
+  text: string;
+  colors: any;
+}
+
+function WarningItem({ text, colors }: WarningItemProps) {
+  return (
+    <View style={styles.warningItem}>
+      <View
+        style={[styles.warningDot, { backgroundColor: colors.danger[500] }]}
+      />
+      <Text style={[styles.warningText, { color: colors.danger[700] }]}>
+        {text}
+      </Text>
     </View>
   );
 }
@@ -458,5 +600,106 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.semibold,
     letterSpacing: -0.2,
+  },
+  overlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  deleteModal: {
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xl,
+    ...shadows.lg,
+    maxHeight: '90%',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: spacing.md,
+    right: spacing.md,
+    padding: spacing.sm,
+  },
+  deleteIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'center',
+    marginBottom: spacing.lg,
+  },
+  deleteTitle: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.bold,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+  },
+  deleteDescription: {
+    fontSize: typography.fontSize.md,
+    lineHeight: 22,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+  },
+  deleteWarningCard: {
+    marginBottom: spacing.lg,
+    padding: spacing.md,
+    borderRadius: radius.md,
+  },
+  warningHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  warningTitle: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semibold,
+  },
+  warningList: {
+    gap: spacing.sm,
+  },
+  warningItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  warningDot: {
+    width: 6,
+    height: 6,
+    borderRadius: radius.full,
+  },
+  warningText: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.medium,
+  },
+  deleteButtonContainer: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  cancelButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButtonText: {
+    fontSize: typography.fontSize.md,
+    fontWeight: typography.fontWeight.semibold,
+  },
+  deleteButtonConfirm: {
+    flex: 1,
+    borderRadius: radius.md,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  deleteButtonText: {
+    fontSize: typography.fontSize.md,
+    fontWeight: typography.fontWeight.semibold,
   },
 });

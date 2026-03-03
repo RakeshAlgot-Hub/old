@@ -80,6 +80,23 @@ class PropertyService:
         if not existing:
             return {"success": False, "propertyId": property_id}
 
+        # Delete all related data
+        # 1. Delete all tenants for this property
+        await self.db["tenants"].delete_many({"propertyId": property_id})
+        
+        # 2. Delete all payments for this property
+        await self.db["payments"].delete_many({"propertyId": property_id})
+        
+        # 3. Delete all beds for this property
+        await self.db["beds"].delete_many({"propertyId": property_id})
+        
+        # 4. Delete all rooms for this property
+        await self.db["rooms"].delete_many({"propertyId": property_id})
+
+        # Delete the property itself
         await self.db["properties"].delete_one({"_id": ObjectId(property_id)})
+        
+        # Remove property ID from all users
         await self.db["users"].update_many({}, {"$pull": {"propertyIds": property_id}})
+        
         return {"success": True, "propertyId": property_id}
