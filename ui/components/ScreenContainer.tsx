@@ -20,7 +20,7 @@ export default function ScreenContainer({
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background.primary }, style]}
       edges={edges}>
-      <View style={styles.content}>
+      <View style={[styles.content, { backgroundColor: colors.background.primary }]}>
         {children}
       </View>
     </SafeAreaView>

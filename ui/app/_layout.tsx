@@ -114,19 +114,32 @@ export default function RootLayout() {
   }
 
   return (
-    <SafeAreaProvider>
+    <SafeAreaProvider style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
       <ThemeProvider>
-        <AuthProvider>
-          <PropertyProvider>
-            <RootNavigator />
-          </PropertyProvider>
-        </AuthProvider>
+        <RootLayoutContent />
       </ThemeProvider>
     </SafeAreaProvider>
   );
 }
 
+function RootLayoutContent() {
+  const { colors } = useTheme();
+  
+  return (
+    <View style={[styles.rootContainer, { backgroundColor: colors.background.primary }]}>
+      <AuthProvider>
+        <PropertyProvider>
+          <RootNavigator />
+        </PropertyProvider>
+      </AuthProvider>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  rootContainer: {
+    flex: 1,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',

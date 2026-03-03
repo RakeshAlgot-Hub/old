@@ -46,6 +46,7 @@ export default function DashboardScreen() {
   const { selectedProperty, selectedPropertyId, loading: propertyLoading } = useProperty();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+    const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [quotaWarnings, setQuotaWarnings] = useState<QuotaWarningsResponse | null>(null);
@@ -54,6 +55,7 @@ export default function DashboardScreen() {
   const fetchDashboardData = async () => {
     if (!selectedPropertyId) {
       setLoading(false);
+       setIsInitialLoad(false);
       return;
     }
 
@@ -63,6 +65,7 @@ export default function DashboardScreen() {
       setDashboardData(cachedData);
       setQuotaWarnings(cachedData.quotaWarnings || null);
       setLoading(false);
+       setIsInitialLoad(false);
       setError(null);
       return;
     }
@@ -116,13 +119,15 @@ export default function DashboardScreen() {
       }
     } finally {
       setLoading(false);
+       setIsInitialLoad(false);
     }
   };
 
   useFocusEffect(
     useCallback(() => {
       if (!propertyLoading) {
-        clearScreenCache();
+        // Don't clear cache on focus - just refresh in background
+        // This keeps cached data visible while fetching new data
         fetchDashboardData();
       }
     }, [selectedPropertyId, propertyLoading])
@@ -143,31 +148,6 @@ export default function DashboardScreen() {
       setRefreshing(false);
     }
   }, [selectedPropertyId]);
-
-  if (propertyLoading || loading) {
-    return (
-      <ScreenContainer edges={['top']}>
-        <PropertySwitcher />
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl 
-              refreshing={refreshing} 
-              onRefresh={handleRefresh}
-              colors={[colors.primary[500]]}
-              tintColor={colors.primary[500]}
-            />
-          }>
-          <View style={styles.header}>
-            <Text style={[styles.greeting, { color: colors.text.secondary }]}>Welcome back,</Text>
-            <Text style={[styles.ownerName, { color: colors.text.primary }]}>Property Owner</Text>
-          </View>
-          <Skeleton height={120} count={2} />
-        </ScrollView>
-      </ScreenContainer>
-    );
-  }
 
   const totalBeds = dashboardData?.stats.totalBeds || 0;
   const occupiedBeds = dashboardData?.stats.occupiedBeds || 0;
@@ -208,7 +188,15 @@ export default function DashboardScreen() {
             tintColor={colors.primary[500]}
           />
         }>
-        {error ? (
+          {propertyLoading || (isInitialLoad && !!selectedPropertyId) ? (
+          <>
+            <View style={styles.header}>
+              <Text style={[styles.greeting, { color: colors.text.secondary }]}>Welcome back,</Text>
+              <Text style={[styles.ownerName, { color: colors.text.primary }]}>Property Owner</Text>
+            </View>
+            <Skeleton height={120} count={2} />
+          </>
+        ) : error ? (
           <>
             <View style={styles.header}>
               <Text style={[styles.greeting, { color: colors.text.secondary }]}>Welcome back,</Text>
@@ -423,3 +411,4 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.semibold,
   },
 });
+

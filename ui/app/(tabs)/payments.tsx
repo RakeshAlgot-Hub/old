@@ -127,8 +127,8 @@ export default function PaymentsScreen() {
   useFocusEffect(
     useCallback(() => {
       if (!propertyLoading && selectedPropertyId) {
-        // Clear cache when focusing on screen
-        clearScreenCache('payments:');
+        // Don't clear cache on focus - just refresh in background
+        // This keeps cached data visible while fetching new data
         // Reset to current month when screen is focused
         setSelectedDate(new Date());
         setCurrentPage(1);
@@ -260,6 +260,28 @@ export default function PaymentsScreen() {
   }
 
   const stats = computeStats();
+
+  if (!selectedProperty) {
+    return (
+      <ScreenContainer edges={['top']}>
+        <View style={styles.header}>
+          <Text style={[styles.headerTitle, { color: colors.text.primary }]}>Payments</Text>
+          <TouchableOpacity style={[styles.filterButton, { backgroundColor: colors.primary[50], borderColor: colors.primary[100] }]} activeOpacity={0.7}>
+            <Filter size={20} color={colors.primary[500]} />
+          </TouchableOpacity>
+        </View>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <EmptyState
+            icon={Building2}
+            title="No Properties Found"
+            subtitle="Create your first property to start managing payments"
+            actionLabel="Create Property"
+            onActionPress={() => router.push('/property-form')}
+          />
+        </ScrollView>
+      </ScreenContainer>
+    );
+  }
 
   return (
     <ScreenContainer edges={['top']}>

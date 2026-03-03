@@ -1,3 +1,4 @@
+import { View, StyleSheet } from 'react-native';
 import { Tabs } from 'expo-router';
 import {
   LayoutDashboard,
@@ -7,15 +8,19 @@ import {
   UserCircle,
 } from 'lucide-react-native';
 import CustomTabBar from '@/components/CustomTabBar';
+import { useTheme } from '@/context/ThemeContext';
 
 export default function TabLayout() {
+  const { colors } = useTheme();
+  
   return (
-    <Tabs
-      tabBar={(props) => <CustomTabBar {...props} />}
-      screenOptions={{
-        headerShown: false,
-        tabBarHideOnKeyboard: true,
-      }}>
+    <View style={[styles.container, { backgroundColor: colors.background.primary }]}>
+      <Tabs
+        tabBar={(props) => <CustomTabBar {...props} />}
+        screenOptions={{
+          headerShown: false,
+          tabBarHideOnKeyboard: true,
+        }}>
       <Tabs.Screen
         name="dashboard"
         options={{
@@ -58,5 +63,12 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+});
