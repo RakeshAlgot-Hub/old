@@ -37,7 +37,8 @@ import {
   QuotaWarningsResponse,
   ArchivedResourcesResponse,
 } from './apiTypes';
-import { tokenStorage } from './tokenStorage';
+import { encryptedTokenStorage } from './encryptedTokenStorage';
+import { dataCache } from './dataCache';
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
@@ -61,8 +62,16 @@ function getRequestKey(method: HttpMethod, endpoint: string, body?: any): string
   return `${method}:${endpoint}`;
 }
 
+function getCacheKey(method: HttpMethod, endpoint: string): string {
+  // Only cache GET requests
+  if (method !== 'GET') {
+    return '';
+  }
+  return `api:${endpoint}`;
+}
+
 async function refreshAccessToken() {
-  const refreshToken = await tokenStorage.getRefreshToken();
+  const refreshToken = await encryptedTokenStorage.getRefreshToken();
   if (!refreshToken) return null;
   
   try {
@@ -78,7 +87,7 @@ async function refreshAccessToken() {
     if (!response.ok) {
       if (response.status === 401 || response.status === 403) {
         // Token is invalid or user is deleted - clear tokens
-        await tokenStorage.clearTokens();
+        await encryptedTokenStorage.clearTokens();
       }
       return null;
     }
@@ -87,9 +96,9 @@ async function refreshAccessToken() {
     const data = responseData?.data;
     
     if (data?.tokens?.accessToken && data?.tokens?.refreshToken && data?.tokens?.expiresAt) {
-      await tokenStorage.setAccessToken(data.tokens.accessToken);
-      await tokenStorage.setRefreshToken(data.tokens.refreshToken);
-      await tokenStorage.setTokenExpiry(data.tokens.expiresAt);
+      await encryptedTokenStorage.setAccessToken(data.tokens.accessToken);
+      await encryptedTokenStorage.setRefreshToken(data.tokens.refreshToken);
+      await encryptedTokenStorage.setTokenExpiry(data.tokens.expiresAt);
       return {
         accessToken: data.tokens.accessToken,
         user: data.user || null,
@@ -136,6 +145,8 @@ async function _performRequest<T>(
   requiresAuth: boolean = false
 ): Promise<ApiResponse<T> | PaginatedResponse<T>> {
   let triedRefresh = false;
+  const cacheKey = getCacheKey(method, endpoint);
+
   while (true) {
     try {
       const url = `${BASE_URL}${endpoint}`;
@@ -144,7 +155,7 @@ async function _performRequest<T>(
         'Accept': 'application/json',
       };
       if (requiresAuth) {
-        const token = await tokenStorage.getAccessToken();
+        const token = await encryptedTokenStorage.getAccessToken();
         if (token) {
           headers['Authorization'] = `Bearer ${token}`;
         }
@@ -211,16 +222,16 @@ async function _performRequest<T>(
         };
         throw error;
       }
+      let result: ApiResponse<T> | PaginatedResponse<T>;
       if (typeof responseData === 'string') {
-        return {
+        result = {
           data: responseData as T,
           meta: {
             timestamp: new Date().toISOString(),
           },
         } as ApiResponse<T>;
-      }
-      if (responseData.data && Array.isArray(responseData.data)) {
-        return {
+      } else if (responseData.data && Array.isArray(responseData.data)) {
+        result = {
           data: responseData.data,
           meta: responseData.meta || {
             total: responseData.data.length,
@@ -229,25 +240,44 @@ async function _performRequest<T>(
             hasMore: false,
           },
         } as PaginatedResponse<T>;
-      }
-      if (responseData.data) {
-        return {
+      } else if (responseData.data) {
+        result = {
           data: responseData.data,
           meta: responseData.meta || {
             timestamp: new Date().toISOString(),
           },
         } as ApiResponse<T>;
+      } else {
+        result = {
+          data: responseData,
+          meta: {
+            timestamp: new Date().toISOString(),
+          },
+        } as ApiResponse<T>;
       }
-      return {
-        data: responseData,
-        meta: {
-          timestamp: new Date().toISOString(),
-        },
-      } as ApiResponse<T>;
+
+      // Cache successful GET responses
+      if (cacheKey) {
+        await dataCache.set(cacheKey, result);
+      }
+
+      return result;
     } catch (error: any) {
+      // If it's a known API error (not network), rethrow it
       if (error.code && error.message) {
         throw error;
       }
+
+      // Network error - try to return cached data
+      if (cacheKey) {
+        const cachedData = await dataCache.get<ApiResponse<T> | PaginatedResponse<T>>(cacheKey);
+        if (cachedData) {
+          console.warn(`Using cached data for ${endpoint} due to network error`);
+          return cachedData;
+        }
+      }
+
+      // No cache available - throw network error
       const apiError: ApiError = {
         code: 'NETWORK_ERROR',
         message: error.message || 'Network request failed',
@@ -329,7 +359,7 @@ export const authService = {
 
   async logout(): Promise<ApiResponse<{ success: boolean }>> {
     // Get refresh token before making logout request
-    const refreshToken = await tokenStorage.getRefreshToken();
+    const refreshToken = await encryptedTokenStorage.getRefreshToken();
     if (!refreshToken) {
       // If no refresh token, just return success (already logged out locally)
       return {

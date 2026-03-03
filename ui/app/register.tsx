@@ -17,7 +17,8 @@ import { spacing, typography, radius, shadows } from '@/theme';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { authService } from '@/services/apiClient';
-import { tokenStorage } from '@/services/tokenStorage';
+import { encryptedTokenStorage } from '@/services/encryptedTokenStorage';
+import { deviceIdService } from '@/services/deviceId';
 
 export default function RegisterScreen() {
   const { colors } = useTheme();
@@ -151,10 +152,13 @@ export default function RegisterScreen() {
       });
 
       if (response?.data?.tokens) {
+        // Store tokens in encrypted storage with device ID binding
+        const deviceId = await deviceIdService.getOrCreateDeviceId();
         await Promise.all([
-          tokenStorage.setAccessToken(response.data.tokens.accessToken),
-          tokenStorage.setRefreshToken(response.data.tokens.refreshToken),
-          tokenStorage.setTokenExpiry(response.data.tokens.expiresAt),
+          encryptedTokenStorage.setAccessToken(response.data.tokens.accessToken),
+          encryptedTokenStorage.setRefreshToken(response.data.tokens.refreshToken),
+          encryptedTokenStorage.setTokenExpiry(response.data.tokens.expiresAt),
+          encryptedTokenStorage.setDeviceIdForTokens(deviceId),
         ]);
         login(response.data.user);
         return;

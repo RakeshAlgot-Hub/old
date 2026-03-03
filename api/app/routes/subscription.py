@@ -1,6 +1,4 @@
-
-
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from typing import Literal
 from app.utils.helpers import get_current_user
 from app.services.subscription_service import SubscriptionService

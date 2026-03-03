@@ -85,7 +85,7 @@ def _verify_google_id_token(id_token: str) -> dict:
 def _build_auth_payload(user_doc: dict, user_id: str):
     access_token = create_access_token({"sub": user_id})
     refresh_token = create_refresh_token({"sub": user_id})
-    expires_at = int(time.time()) + 60 * 60 * 24 * 7
+    expires_at = int(time.time()) + 60 * 60 * 24 * 30
     user_out = UserOut(
         id=user_id,
         name=user_doc["name"],
@@ -407,7 +407,7 @@ async def refresh_token_service(payload):
         await blacklist_token(refresh_token)
         new_refresh_token = create_refresh_token({"sub": user_id})
         token = create_access_token({"sub": user_id})
-        expires_at = int(time.time()) + 60 * 60 * 24 * 7
+        expires_at = int(time.time()) + 60 * 60 * 24 * 30
         
         # Build user data
         user_out = UserOut(

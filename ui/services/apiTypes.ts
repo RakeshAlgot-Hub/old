@@ -27,10 +27,9 @@ export type BillingFrequency = 'monthly' | 'quarterly' | 'yearly';
 
 export interface BillingConfig {
   status: 'paid' | 'due' | 'overdue';
-  billingCycle: 'monthly' | 'day-wise';
+  billingCycle: 'monthly';
   anchorDay: number;
   method?: string;
-  dayWiseStartDate?: string;
 }
 
 export interface Tenant {

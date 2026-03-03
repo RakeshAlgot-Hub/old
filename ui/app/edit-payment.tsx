@@ -17,6 +17,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Wallet, ChevronLeft, ChevronDown, Calendar, AlertTriangle } from 'lucide-react-native';
 import { spacing, typography, radius, shadows } from '@/theme';
 import { useTheme } from '@/context/ThemeContext';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { paymentService } from '@/services/apiClient';
 import ApiErrorCard from '@/components/ApiErrorCard';
 import { cacheKeys, clearScreenCache, getScreenCache, setScreenCache } from '@/services/screenCache';
@@ -34,6 +35,7 @@ export default function EditPaymentScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const { paymentId } = useLocalSearchParams<{ paymentId: string }>();
+  const isOnline = useNetworkStatus();
 
   const [amount, setAmount] = useState('');
   const [dueDate, setDueDate] = useState('');
@@ -380,22 +382,30 @@ export default function EditPaymentScreen() {
               </TouchableOpacity>
             </View>
 
+            {!isOnline && (
+              <View style={[styles.offlineWarning, { backgroundColor: colors.warning[50], borderColor: colors.warning[200] }]}>
+                <Text style={[styles.offlineWarningText, { color: colors.warning[900] }]}>
+                  📡 Offline - You cannot update payments without internet connection
+                </Text>
+              </View>
+            )}
+
             <TouchableOpacity
               style={[
                 styles.submitButton,
                 {
                   backgroundColor: colors.primary[500],
-                  opacity: loading || !isFormValid() ? 0.6 : 1,
+                  opacity: loading || !isFormValid() || !isOnline ? 0.6 : 1,
                 },
               ]}
               onPress={handleSubmit}
               activeOpacity={0.8}
-              disabled={loading || !isFormValid()}>
+              disabled={loading || !isFormValid() || !isOnline}>
               {loading ? (
                 <ActivityIndicator color={colors.white} size="small" />
               ) : (
                 <Text style={[styles.submitButtonText, { color: colors.white }]}>
-                  Update Payment
+                  {isOnline ? 'Update Payment' : 'Offline'}
                 </Text>
               )}
             </TouchableOpacity>
@@ -684,6 +694,17 @@ const styles = StyleSheet.create({
   },
   submitButtonText: {
     fontSize: typography.fontSize.md,
+    fontWeight: typography.fontWeight.semibold,
+  },
+  offlineWarning: {
+    borderRadius: radius.md,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  offlineWarningText: {
+    fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.semibold,
   },
   modalOverlay: {

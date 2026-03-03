@@ -7,9 +7,10 @@ import { useTheme } from '@/context/ThemeContext';
 
 interface FABProps {
   onPress: () => void;
+  disabled?: boolean;
 }
 
-export default function FAB({ onPress }: FABProps) {
+export default function FAB({ onPress, disabled = false }: FABProps) {
   const insets = useSafeAreaInsets();
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const { colors } = useTheme();
@@ -43,11 +44,12 @@ export default function FAB({ onPress }: FABProps) {
         },
       ]}>
       <TouchableOpacity
-        style={[styles.button, { backgroundColor: colors.primary[500] }]}
+        style={[styles.button, { backgroundColor: colors.primary[500], opacity: disabled ? 0.5 : 1 }]}
         onPress={onPress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
-        activeOpacity={0.9}>
+        activeOpacity={0.9}
+        disabled={disabled}>
         <Plus size={28} color={colors.white} />
       </TouchableOpacity>
     </Animated.View>

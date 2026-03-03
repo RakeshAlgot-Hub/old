@@ -18,6 +18,7 @@ import { Wallet, ChevronLeft, ChevronDown } from 'lucide-react-native';
 import { spacing, typography, radius, shadows } from '@/theme';
 import { useTheme } from '@/context/ThemeContext';
 import { useProperty } from '@/context/PropertyContext';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { paymentService, tenantService } from '@/services/apiClient';
 import type { Tenant, Payment } from '@/services/apiTypes';
 import EmptyState from '@/components/EmptyState';
@@ -39,6 +40,7 @@ export default function AddPaymentScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { selectedPropertyId } = useProperty();
+  const isOnline = useNetworkStatus();
 
   const [name, setName] = useState(typeof params.name === 'string' ? params.name : '');
   const [documentId, setDocumentId] = useState(typeof params.documentId === 'string' ? params.documentId : '');
@@ -50,20 +52,15 @@ export default function AddPaymentScreen() {
   const [propertyId] = useState(typeof params.propertyId === 'string' ? params.propertyId : selectedPropertyId);
   const [amount, setAmount] = useState(params.rent || '');
   const [status, setStatus] = useState<'paid' | 'due'>('paid');
-  // Billing settings
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'day-wise'>('monthly');
-  // Set anchorDay to today's day of month by default
   function getTodayDay() {
     return new Date().getDate();
   }
   const [anchorDay, setAnchorDay] = useState<number>(getTodayDay());
-  const [dayWiseStartDate, setDayWiseStartDate] = useState<string>('');
   const [autoGeneratePayments, setAutoGeneratePayments] = useState(true);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showStatusPicker, setShowStatusPicker] = useState(false);
-  const [showFrequencyPicker, setShowFrequencyPicker] = useState(false);
   const [showAnchorDayPicker, setShowAnchorDayPicker] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
@@ -72,55 +69,25 @@ export default function AddPaymentScreen() {
       // Extract day of month from joinDate
       const joinDateObj = new Date(joinDate);
       setAnchorDay(joinDateObj.getDate());
-      // Set day-wise start date to join date by default
-      setDayWiseStartDate(joinDate);
     }
   }, [joinDate]);
-
-  // When switching billing cycles, ensure anchor day is valid for the selected cycle
-  useEffect(() => {
-    const dayWiseOptions = [1, 3, 5, 7, 10, 14, 15, 21, 30, 45, 60, 90];
-    
-    if (billingCycle === 'day-wise' && !dayWiseOptions.includes(anchorDay)) {
-      // Default to 7 days for day-wise billing if current value is not in the list
-      setAnchorDay(7);
-    } else if (billingCycle === 'monthly' && (anchorDay < 1 || anchorDay > 31)) {
-      // Default to today's day for monthly billing if current value is out of range
-      setAnchorDay(getTodayDay());
-    }
-  }, [billingCycle]);
-
-  // Validate required fields
-  useEffect(() => {
-    // Removed due date calculation effect
-  }, [billingCycle]);
 
   const handleStatusChange = (newStatus: 'paid' | 'due') => {
     if (newStatus === 'paid' || newStatus === 'due') {
       setStatus(newStatus);
       
-      // If status is 'due', set anchor day to today for MONTHLY billing only
-      // For day-wise, user still needs to choose the interval
+      // If status is 'due', set anchor day to today
       if (newStatus === 'due') {
         const today = new Date();
-        if (billingCycle === 'monthly') {
-          setAnchorDay(today.getDate());
-        }
-        setDayWiseStartDate(today.toISOString().split('T')[0]);
+        setAnchorDay(today.getDate());
       }
     }
   };
 
   const handleSubmit = async () => {
-    // Only require tenant + status. If autoGeneratePayments is true, also require billingCycle
+    // Only require tenant + status
     if (!name || !phone || !rent || !joinDate || !roomId || !bedId || !propertyId) {
       setError('All required fields must be filled');
-      return;
-    }
-
-    // If auto-generating payments, require billing config
-    if (autoGeneratePayments && !billingCycle) {
-      setError('Billing Cycle is required for auto-generated payments');
       return;
     }
 
@@ -144,7 +111,6 @@ export default function AddPaymentScreen() {
           joinDate,
         },
         status,
-        billingCycle,
         anchorDay,
       };
       // Call backend to create tenant
@@ -157,13 +123,9 @@ export default function AddPaymentScreen() {
       if (autoGeneratePayments) {
         tenantPayload.billingConfig = {
           status,
-          billingCycle,
+          billingCycle: 'monthly',
           anchorDay: anchorDay,
         };
-        // For day-wise, include the start date
-        if (billingCycle === 'day-wise' && dayWiseStartDate) {
-          tenantPayload.billingConfig.dayWiseStartDate = dayWiseStartDate;
-        }
       }
 
       await tenantService.createTenant(tenantPayload);
@@ -193,11 +155,6 @@ export default function AddPaymentScreen() {
       status && 
       !isNaN(parseFloat(rent)) && 
       parseFloat(rent) > 0;
-
-    // If auto-generating payments, also check billing config
-    if (autoGeneratePayments) {
-      return baseValid && billingCycle;
-    }
 
     return baseValid;
   };
@@ -293,26 +250,10 @@ export default function AddPaymentScreen() {
             {/* Billing Configuration - Only show when auto-generate is ENABLED */}
             {autoGeneratePayments && (
               <>
-                {/* Billing Cycle */}
-                <View style={styles.inputContainer}>
-                  <Text style={[styles.label, { color: colors.text.primary }]}>Billing Cycle *</Text>
-                  <TouchableOpacity
-                    style={[styles.pickerButton, { backgroundColor: colors.white, borderColor: colors.border.medium }]} 
-                    onPress={() => setShowFrequencyPicker(true)}
-                    activeOpacity={0.7}
-                    disabled={loading}>
-                    <Text style={[styles.pickerButtonText, { color: colors.text.primary }]}> 
-                      {billingCycle.charAt(0).toUpperCase() + billingCycle.slice(1)}
-                    </Text>
-                    <ChevronDown size={20} color={colors.text.tertiary} />
-                  </TouchableOpacity>
-                </View>
                 {/* Anchor Day */}
                 <View style={styles.inputContainer}>
-                <Text style={[styles.label, { color: colors.text.primary }]}>
-                  {billingCycle === 'monthly' ? 'When is rent due?' : 'How often is rent due?'} *
-                </Text>
-                {status === 'due' && billingCycle === 'monthly' ? (
+                <Text style={[styles.label, { color: colors.text.primary }]}>When is rent due? *</Text>
+                {status === 'due' ? (
                   // For monthly + due: lock to today (rent is due today)
                   <View style={[styles.infoBox, { backgroundColor: colors.primary[50], borderColor: colors.primary[200] }]}>
                     <Text style={[styles.infoValue, { color: colors.primary[700] }]}>
@@ -330,57 +271,16 @@ export default function AddPaymentScreen() {
                     activeOpacity={0.7}
                     disabled={loading}>
                     <Text style={[styles.pickerButtonText, { color: colors.text.primary }]}>
-                      {billingCycle === 'monthly' ? `📅 Day ${anchorDay} • Every Month` : `⏰ Every ${anchorDay} days`}
+                      📅 Day ${anchorDay} • Every Month
                     </Text>
                     <ChevronDown size={20} color={colors.text.tertiary} />
                   </TouchableOpacity>
                 )}
               </View>
-              {!(status === 'due' && billingCycle === 'monthly') && (
+              {status !== 'due' && (
                 <Text style={[styles.helperText, { color: colors.text.secondary, marginTop: 2 }]}>
-                  {billingCycle === 'monthly' 
-                    ? 'Rent is due on the same day every month. Example: Day 2 = Jan 2, Feb 2, Mar 2, Apr 2, etc.' 
-                    : 'Rent is due every X days from the start date. Example: Every 15 days = first payment on join date, then after 15 days, 30 days, etc.'}
+                  Rent is due on the same day every month. Example: Day 2 = Jan 2, Feb 2, Mar 2, Apr 2, etc.
                 </Text>
-              )}
-
-              {/* For day-wise, select when the first payment starts */}
-              {billingCycle === 'day-wise' && (
-                <>
-                  {status === 'due' ? (
-                    // If status is 'due', show that first payment starts today
-                    <View style={[styles.infoBox, { backgroundColor: colors.primary[50], borderColor: colors.primary[200] }]}>
-                      <Text style={[styles.infoLabel, { color: colors.text.primary }]}>
-                        📌 First Payment Starts:
-                      </Text>
-                      <Text style={[styles.infoValue, { color: colors.primary[700] }]}>
-                        Today ({new Date().toLocaleDateString('en-US', { 
-                          year: 'numeric', 
-                          month: 'short', 
-                          day: 'numeric' 
-                        })})
-                      </Text>
-                      <Text style={[styles.infoNote, { color: colors.text.secondary }]}>
-                        Rent is due today. Next payment will be in {anchorDay} days.
-                      </Text>
-                    </View>
-                  ) : (
-                    // If status is 'paid', allow date selection
-                    <>
-                      <DatePicker
-                        value={dayWiseStartDate}
-                        onChange={setDayWiseStartDate}
-                        label="When should the first payment start?"
-                        disabled={loading}
-                        required
-                        restrictToNext30Days={true}
-                      />
-                      <Text style={[styles.helperText, { color: colors.text.secondary, marginTop: 2 }]}>
-                        Select when the first payment is due. Subsequent payments will be every {anchorDay} days from this date.
-                      </Text>
-                    </>
-                  )}
-                </>
               )}
               </>
             )}
@@ -403,22 +303,30 @@ export default function AddPaymentScreen() {
             </View>
 
 
+            {!isOnline && (
+              <View style={[styles.offlineWarning, { backgroundColor: colors.warning[50], borderColor: colors.warning[200] }]}>
+                <Text style={[styles.offlineWarningText, { color: colors.warning[900] }]}>
+                  📡 Offline - You cannot add payments without internet connection
+                </Text>
+              </View>
+            )}
+
             <TouchableOpacity
               style={[
                 styles.submitButton,
                 {
                   backgroundColor: colors.primary[500],
-                  opacity: loading || !isFormValid() ? 0.6 : 1,
+                  opacity: loading || !isFormValid() || !isOnline ? 0.6 : 1,
                 },
               ]}
               onPress={handleSubmit}
               activeOpacity={0.8}
-              disabled={loading || !isFormValid()}>
+              disabled={loading || !isFormValid() || !isOnline}>
               {loading ? (
                 <ActivityIndicator color={colors.white} size="small" />
               ) : (
                 <Text style={[styles.submitButtonText, { color: colors.white }]}>
-                  Add Tenant
+                  {isOnline ? 'Add Tenant' : 'Offline'}
                 </Text>
               )}
             </TouchableOpacity>
@@ -484,53 +392,6 @@ export default function AddPaymentScreen() {
         </View>
       </Modal>
 
-      <Modal
-        visible={showFrequencyPicker}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowFrequencyPicker(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContainer, { backgroundColor: colors.white }]}> 
-            <View style={[styles.modalHeader, { borderBottomColor: colors.border.light }]}> 
-              <Text style={[styles.modalTitle, { color: colors.text.primary }]}>Select Billing Cycle</Text>
-            </View>
-            <ScrollView style={styles.modalScrollView}>
-              {(['monthly', 'day-wise'] as Array<'monthly' | 'day-wise'>).map((cycle, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[styles.modalOption, { borderBottomColor: colors.border.light }]} 
-                  onPress={() => {
-                    setBillingCycle(cycle);
-                    setShowFrequencyPicker(false);
-                  }}
-                  activeOpacity={0.7}>
-                  <Text
-                    style={[
-                      styles.modalOptionText,
-                      {
-                        color:
-                          billingCycle === cycle ? colors.primary[500] : colors.text.primary,
-                        fontWeight:
-                          billingCycle === cycle
-                            ? typography.fontWeight.semibold
-                            : typography.fontWeight.regular,
-                      },
-                    ]}>
-                    {cycle.charAt(0).toUpperCase() + cycle.slice(1)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            <TouchableOpacity
-              style={[styles.modalCloseButton, { borderTopColor: colors.border.light }]} 
-              onPress={() => setShowFrequencyPicker(false)}
-              activeOpacity={0.7}>
-              <Text style={[styles.modalCloseButtonText, { color: colors.text.secondary }]}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
         <Modal
           visible={showAnchorDayPicker}
           transparent
@@ -539,15 +400,10 @@ export default function AddPaymentScreen() {
           <View style={styles.modalOverlay}>
             <View style={[styles.modalContainer, { backgroundColor: colors.white }]}>
               <View style={[styles.modalHeader, { borderBottomColor: colors.border.light }]}>
-                <Text style={[styles.modalTitle, { color: colors.text.primary }]}>
-                  {billingCycle === 'monthly' ? 'When is rent due?' : 'Rent due every how many days?'}
-                </Text>
+                <Text style={[styles.modalTitle, { color: colors.text.primary }]}>When is rent due?</Text>
               </View>
               <ScrollView style={styles.modalScrollView}>
-                {(billingCycle === 'monthly' 
-                  ? Array.from({ length: 31 }, (_, i) => i + 1)
-                  : [1, 3, 5, 7, 10, 14, 15, 21, 30, 45, 60, 90]
-                ).map((day) => (
+                {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
                   <TouchableOpacity
                     key={day}
                     style={[styles.modalOption, { borderBottomColor: colors.border.light }]}
@@ -568,7 +424,7 @@ export default function AddPaymentScreen() {
                               : typography.fontWeight.regular,
                         },
                       ]}>
-                      {billingCycle === 'monthly' ? `Day ${day} • Every Month` : `Every ${day} days`}
+                      Day ${day} • Every Month
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -731,6 +587,17 @@ const styles = StyleSheet.create({
   },
   submitButtonText: {
     fontSize: typography.fontSize.md,
+    fontWeight: typography.fontWeight.semibold,
+  },
+  offlineWarning: {
+    borderRadius: radius.md,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  offlineWarningText: {
+    fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.semibold,
   },
   modalOverlay: {

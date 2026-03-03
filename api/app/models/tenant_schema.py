@@ -9,14 +9,12 @@ class BillingStatus(str, Enum):
 
 class BillingCycle(str, Enum):
     MONTHLY = 'monthly'
-    DAY_WISE = 'day-wise'
 
 class BillingConfig(BaseModel):
     status: Literal['paid', 'due', 'overdue']
-    billingCycle: Literal['monthly', 'day-wise']
-    anchorDay: int = Field(default=1, ge=1)
+    billingCycle: Literal['monthly']
+    anchorDay: int = Field(default=1, ge=1, le=31)
     method: Optional[str] = None
-    dayWiseStartDate: Optional[str] = None
 
 class Tenant(BaseModel):
     id: Optional[str] = None

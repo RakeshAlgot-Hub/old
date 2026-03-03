@@ -19,6 +19,7 @@ import ScreenContainer from '@/components/ScreenContainer';
 import { spacing, typography, radius, shadows } from '@/theme';
 import { useTheme } from '@/context/ThemeContext';
 import { useProperty } from '@/context/PropertyContext';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { staffService, subscriptionService } from '@/services/apiClient';
 import { Staff, Subscription, PlanLimits } from '@/services/apiTypes';
 import { ChevronLeft, Plus, Trash2, Edit2, X, Users, AlertCircle } from 'lucide-react-native';
@@ -48,6 +49,7 @@ export default function ManageStaffScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const { selectedProperty } = useProperty();
+  const isOnline = useNetworkStatus();
 
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
@@ -337,16 +339,18 @@ export default function ManageStaffScreen() {
 
       <View style={styles.actions}>
         <TouchableOpacity
-          style={[styles.actionButton, { backgroundColor: colors.primary[50] }]}
+          style={[styles.actionButton, { backgroundColor: colors.primary[50], opacity: !isOnline ? 0.5 : 1 }]}
           onPress={() => openEditModal(item)}
-          activeOpacity={0.7}>
+          activeOpacity={0.7}
+          disabled={!isOnline}>
           <Edit2 size={18} color={colors.primary[500]} />
           <Text style={[styles.actionText, { color: colors.primary[500] }]}>Edit</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.actionButton, { backgroundColor: colors.danger[50] }]}
+          style={[styles.actionButton, { backgroundColor: colors.danger[50], opacity: !isOnline ? 0.5 : 1 }]}
           onPress={() => handleDelete(item)}
-          activeOpacity={0.7}>
+          activeOpacity={0.7}
+          disabled={!isOnline}>
           <Trash2 size={18} color={colors.danger[500]} />
           <Text style={[styles.actionText, { color: colors.danger[500] }]}>Remove</Text>
         </TouchableOpacity>
@@ -751,17 +755,25 @@ export default function ManageStaffScreen() {
                 />
               </View>
 
+              {!isOnline && (
+                <View style={[styles.offlineWarning, { backgroundColor: colors.warning[50], borderColor: colors.warning[200] }]}>
+                  <Text style={[styles.offlineWarningText, { color: colors.warning[900] }]}>
+                    📡 Offline - You cannot add or update staff without internet connection
+                  </Text>
+                </View>
+              )}
+
               {/* Submit Button */}
               <TouchableOpacity
-                style={[styles.submitButton, { backgroundColor: colors.primary[500] }]}
+                style={[styles.submitButton, { backgroundColor: colors.primary[500], opacity: !isOnline ? 0.6 : 1 }]}
                 onPress={handleSubmit}
-                disabled={formLoading}
+                disabled={formLoading || !isOnline}
                 activeOpacity={0.8}>
                 {formLoading ? (
                   <ActivityIndicator color={colors.white} />
                 ) : (
                   <Text style={[styles.submitButtonText, { color: colors.white }]}>
-                    {editingStaff ? 'Update Staff' : 'Add Staff'}
+                    {!isOnline ? 'Offline' : (editingStaff ? 'Update Staff' : 'Add Staff')}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -985,6 +997,17 @@ const styles = StyleSheet.create({
   submitButtonText: {
     fontSize: typography.fontSize.md,
     fontWeight: typography.fontWeight.bold,
+  },
+  offlineWarning: {
+    borderRadius: radius.md,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  offlineWarningText: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semibold,
   },
   quotaContainer: {
     paddingHorizontal: spacing.lg,

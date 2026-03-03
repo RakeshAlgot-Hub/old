@@ -233,7 +233,7 @@ export default function DashboardScreen() {
               />
             ) : (
               <>
-                {quotaWarnings?.warnings?.length > 0 && (
+                {quotaWarnings?.warnings && quotaWarnings.warnings.length > 0 && (
                   quotaWarnings.warnings.map((warning, index) => (
                     <LimitBanner
                       key={index}
@@ -289,7 +289,7 @@ export default function DashboardScreen() {
                   <View style={styles.section}>
                     <SectionHeader icon={AlertCircle} iconColor={colors.danger[500]} title="Overdue" />
                     {dashboardData.overduePayments.map((payment, index) => {
-                      const dueDate = new Date(payment.dueDate);
+                      const dueDate = new Date(payment.dueDate || new Date().toISOString());
                       const today = new Date();
                       const diffTime = Math.abs(today.getTime() - dueDate.getTime());
                       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));

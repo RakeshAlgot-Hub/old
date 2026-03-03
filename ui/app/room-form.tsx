@@ -17,6 +17,7 @@ import { DoorOpen, ChevronLeft, ChevronDown } from 'lucide-react-native';
 import { spacing, typography, radius, shadows } from '@/theme';
 import { useTheme } from '@/context/ThemeContext';
 import { useProperty } from '@/context/PropertyContext';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { roomService } from '@/services/apiClient';
 import { clearScreenCache } from '@/services/screenCache';
 
@@ -35,6 +36,7 @@ export default function RoomFormScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const { selectedPropertyId } = useProperty();
+  const isOnline = useNetworkStatus();
   const [roomNumber, setRoomNumber] = useState('');
   const [floor, setFloor] = useState('');
   const [customFloor, setCustomFloor] = useState('');
@@ -254,22 +256,30 @@ export default function RoomFormScreen() {
               />
             </View>
 
+            {!isOnline && (
+              <View style={[styles.offlineWarning, { backgroundColor: colors.warning[50], borderColor: colors.warning[200] }]}>
+                <Text style={[styles.offlineWarningText, { color: colors.warning[900] }]}>
+                  📡 Offline - You cannot create rooms without internet connection
+                </Text>
+              </View>
+            )}
+
             <TouchableOpacity
               style={[
                 styles.submitButton,
                 {
                   backgroundColor: colors.primary[500],
-                  opacity: loading ? 0.6 : 1,
+                  opacity: loading || !isOnline ? 0.6 : 1,
                 },
               ]}
               onPress={handleSubmit}
               activeOpacity={0.8}
-              disabled={loading}>
+              disabled={loading || !isOnline}>
               {loading ? (
                 <ActivityIndicator color={colors.white} size="small" />
               ) : (
                 <Text style={[styles.submitButtonText, { color: colors.white }]}>
-                  Create Room
+                  {isOnline ? 'Create Room' : 'Offline'}
                 </Text>
               )}
             </TouchableOpacity>
@@ -441,6 +451,17 @@ const styles = StyleSheet.create({
   },
   submitButtonText: {
     fontSize: typography.fontSize.md,
+    fontWeight: typography.fontWeight.semibold,
+  },
+  offlineWarning: {
+    borderRadius: radius.md,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  offlineWarningText: {
+    fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.semibold,
   },
   modalOverlay: {

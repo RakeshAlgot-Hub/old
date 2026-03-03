@@ -7,6 +7,7 @@ import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { ThemeProvider, useTheme } from '@/context/ThemeContext';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { PropertyProvider } from '@/context/PropertyContext';
+import { OfflineIndicator } from '@/components/OfflineIndicator';
 import { spacing, typography, radius, shadows } from '@/theme';
 
 const PLAY_STORE_URL = process.env.EXPO_PUBLIC_PLAYSTORE_URL || 'https://play.google.com/store/apps/details?id=com.lohilit101.boltexponativewind';
@@ -74,6 +75,7 @@ function RootNavigator() {
 
   return (
     <>
+      <OfflineIndicator />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="register" />

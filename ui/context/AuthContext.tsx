@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
-import { tokenStorage } from '@/services/tokenStorage';
+import { encryptedTokenStorage } from '@/services/encryptedTokenStorage';
+import { deviceIdService } from '@/services/deviceId';
 import { authService } from '@/services/apiClient';
 import type { Owner } from '@/services/apiTypes';
 import { clearScreenCache } from '@/services/screenCache';
@@ -53,9 +54,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const initializeAuth = async () => {
     try {
-      const token = await tokenStorage.getAccessToken();
-      const refreshToken = await tokenStorage.getRefreshToken();
-      const isValid = await tokenStorage.isTokenValid();
+      // Get or create device ID
+      const deviceId = await deviceIdService.getOrCreateDeviceId();
+      
+      const token = await encryptedTokenStorage.getAccessToken();
+      const refreshToken = await encryptedTokenStorage.getRefreshToken();
+      const isValid = await encryptedTokenStorage.isTokenValid();
 
       if (!token || !refreshToken) {
         setIsAuthenticated(false);
@@ -75,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch (error: any) {
           if (error?.code === 'UNAUTHORIZED' || error?.details?.status === 401) {
             // Token invalid on server, clear it
-            await tokenStorage.clearTokens();
+            await encryptedTokenStorage.clearTokens();
             setIsAuthenticated(false);
             setUser(null);
           } else if (error?.code === 'NETWORK_ERROR') {
@@ -105,18 +109,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             scheduleTokenRefresh();
           }
         } else {
-          await tokenStorage.clearTokens();
+          await encryptedTokenStorage.clearTokens();
           setIsAuthenticated(false);
           setUser(null);
         }
       } else {
-        await tokenStorage.clearTokens();
+        await encryptedTokenStorage.clearTokens();
         setIsAuthenticated(false);
         setUser(null);
       }
     } catch (error) {
       // On unexpected errors, stay logged in if we have tokens
-      const token = await tokenStorage.getAccessToken();
+      const token = await encryptedTokenStorage.getAccessToken();
       if (token) {
         setIsAuthenticated(true);
       } else {
@@ -130,7 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshAccessToken = async (): Promise<boolean> => {
     try {
-      const refreshToken = await tokenStorage.getRefreshToken();
+      const refreshToken = await encryptedTokenStorage.getRefreshToken();
       if (!refreshToken) {
         return false;
       }
@@ -147,7 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
-          await tokenStorage.clearTokens();
+          await encryptedTokenStorage.clearTokens();
           setIsAuthenticated(false);
           setUser(null);
         }
@@ -158,10 +162,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = responseData?.data;
 
       if (data?.tokens?.accessToken && data?.tokens?.refreshToken && data?.tokens?.expiresAt) {
-        // Update tokens
-        await tokenStorage.setAccessToken(data.tokens.accessToken);
-        await tokenStorage.setRefreshToken(data.tokens.refreshToken);
-        await tokenStorage.setTokenExpiry(data.tokens.expiresAt);
+        // Update tokens with token rotation (new refresh token on each refresh)
+        await encryptedTokenStorage.setAccessToken(data.tokens.accessToken);
+        await encryptedTokenStorage.setRefreshToken(data.tokens.refreshToken);
+        await encryptedTokenStorage.setTokenExpiry(data.tokens.expiresAt);
 
         // Update user data if provided (in case user properties changed on server)
         if (data.user) {
@@ -180,7 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const scheduleTokenRefresh = async () => {
     try {
-      const expiry = await tokenStorage.getTokenExpiry();
+      const expiry = await encryptedTokenStorage.getTokenExpiry();
       if (!expiry) return;
 
       const timeUntilExpiry = expiry - Date.now();
@@ -207,7 +211,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (success) {
           scheduleTokenRefresh(); // Reschedule for next refresh
         } else {
-          await tokenStorage.clearTokens();
+          await encryptedTokenStorage.clearTokens();
           setIsAuthenticated(false);
           setUser(null);
         }
@@ -224,7 +228,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // App came to foreground - check if token needs refresh
     if (prevAppState === 'background' && nextAppState === 'active') {
       if (isAuthenticated) {
-        const isValid = await tokenStorage.isTokenValid();
+        const isValid = await encryptedTokenStorage.isTokenValid();
         if (!isValid) {
           await refreshAccessToken();
           scheduleTokenRefresh();
@@ -247,7 +251,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       // Silently handle logout errors
     } finally {
-      await tokenStorage.clearTokens();
+      await encryptedTokenStorage.clearTokens();
       await propertyStorage.clearSelectedPropertyId();
       clearScreenCache();
       setUser(null);

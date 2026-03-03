@@ -167,17 +167,12 @@ class TenantService:
             anchor_day = billing_config.anchorDay
             today = datetime.now(timezone.utc)
             
-            # For monthly billing, set dueDate to anchorDay of current or next month
-            if billing_config.billingCycle == BillingCycle.MONTHLY.value:
-                # Use relativedelta to handle months with fewer days (e.g., Feb 30 becomes Feb 28)
-                due_date = today + relativedelta(day=anchor_day)
-                # If the anchor day has already passed this month, use next month
-                if due_date < today:
-                    due_date = due_date + relativedelta(months=1)
-            else:
-                # For day-wise billing, use the dayWiseStartDate if provided, otherwise use join date
-                start_date_str = billing_config.dayWiseStartDate or tenant_data.get("joinDate", today.isoformat())
-                due_date = datetime.fromisoformat(start_date_str)
+            # Set dueDate to anchorDay of current or next month
+            # Use relativedelta to handle months with fewer days (e.g., Feb 30 becomes Feb 28)
+            due_date = today + relativedelta(day=anchor_day)
+            # If the anchor day has already passed this month, use next month
+            if due_date < today:
+                due_date = due_date + relativedelta(months=1)
             
             payment = PaymentCreate(
                 tenantId=tenant_data["id"],
@@ -257,7 +252,7 @@ class TenantService:
             tenant_cursor = self.collection.find({
                 "autoGeneratePayments": True,
                 "billingConfig": {"$exists": True},
-                "billingConfig.billingCycle": {"$in": [BillingCycle.MONTHLY.value, BillingCycle.DAY_WISE.value]}
+                "billingConfig.billingCycle": BillingCycle.MONTHLY.value
             })
             
             payments_to_insert = []
@@ -290,22 +285,10 @@ class TenantService:
                     # Determine due date based on billing cycle
                     due_date = None
                     
-                    if billing_config.billingCycle == BillingCycle.MONTHLY.value:
-                        due_date = today + relativedelta(day=billing_config.anchorDay)
-                        if due_date < today:
-                            due_date = due_date + relativedelta(months=1)
-                    
-                    elif billing_config.billingCycle == BillingCycle.DAY_WISE.value:
-                        try:
-                            start_date_str = billing_config.dayWiseStartDate or tenant_doc.get("joinDate", today.isoformat())
-                            start_date = datetime.fromisoformat(start_date_str).date()
-                            anchor_days = billing_config.anchorDay
-                            days_since_start = (today - start_date).days
-                            intervals_passed = days_since_start // anchor_days
-                            next_due = start_date + timedelta(days=(intervals_passed + 1) * anchor_days)
-                            due_date = next_due
-                        except (ValueError, TypeError):
-                            due_date = today
+                    # Calculate due date for monthly billing
+                    due_date = today + relativedelta(day=billing_config.anchorDay)
+                    if due_date < today:
+                        due_date = due_date + relativedelta(months=1)
                     
                     if not due_date:
                         result["skipped"] += 1

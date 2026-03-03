@@ -32,6 +32,7 @@ import {
 import { Bed as BedIcon } from 'lucide-react-native';
 import { spacing, typography, radius, shadows } from '@/theme';
 import { useTheme } from '@/context/ThemeContext';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { tenantService, paymentService, roomService } from '@/services/apiClient';
 import type { Tenant, Payment, Room, Bed, BillingFrequency, BillingConfig } from '@/services/apiTypes';
 import Card from '@/components/Card';
@@ -54,6 +55,7 @@ export default function TenantDetailScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const { tenantId } = useLocalSearchParams<{ tenantId: string }>();
+  const isOnline = useNetworkStatus();
 
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -63,11 +65,8 @@ export default function TenantDetailScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const [showEditBillingModal, setShowEditBillingModal] = useState(false);
-  const [editFrequency, setEditFrequency] = useState<'monthly' | 'day-wise'>('monthly');
   const [editAnchorDay, setEditAnchorDay] = useState<number>(1);
-  const [editDayWiseStartDate, setEditDayWiseStartDate] = useState<string>('');
   const [editAutoGenerate, setEditAutoGenerate] = useState(true);
-  const [showFrequencyPicker, setShowFrequencyPicker] = useState(false);
   const [showAnchorDayPicker, setShowAnchorDayPicker] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
   const [showEditTenantModal, setShowEditTenantModal] = useState(false);
@@ -157,9 +156,7 @@ export default function TenantDetailScreen() {
     setEditAutoGenerate(tenant.autoGeneratePayments === true);
 
     if (tenant.billingConfig) {
-      setEditFrequency(tenant.billingConfig.billingCycle);
       setEditAnchorDay(tenant.billingConfig.anchorDay || 1);
-      setEditDayWiseStartDate(tenant.billingConfig.dayWiseStartDate || tenant.joinDate || '');
     }
     setShowEditBillingModal(true);
   };
@@ -174,14 +171,10 @@ export default function TenantDetailScreen() {
 
       if (editAutoGenerate) {
         const billingConfig: BillingConfig = {
-          billingCycle: editFrequency,
+          billingCycle: 'monthly',
           anchorDay: editAnchorDay,
           status: tenant.billingConfig?.status || 'due',
         };
-
-        if (editFrequency === 'day-wise' && editDayWiseStartDate) {
-          billingConfig.dayWiseStartDate = editDayWiseStartDate;
-        }
 
         nextBillingConfig = billingConfig;
       } else {
@@ -417,17 +410,17 @@ export default function TenantDetailScreen() {
         <Text style={[styles.headerTitle, { color: colors.text.primary }]}>Tenant Details</Text>
         <View style={styles.headerActions}>
           <TouchableOpacity
-            style={[styles.iconActionButton, { backgroundColor: colors.primary[50], borderColor: colors.primary[200] }]}
+            style={[styles.iconActionButton, { backgroundColor: colors.primary[50], borderColor: colors.primary[200], opacity: !isOnline ? 0.5 : 1 }]}
             onPress={openEditTenantModal}
             activeOpacity={0.7}
-            disabled={tenantActionLoading}>
+            disabled={tenantActionLoading || !isOnline}>
             <Pencil size={16} color={colors.primary[600]} />
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.iconActionButton, { backgroundColor: colors.danger[50], borderColor: colors.danger[200] }]}
+            style={[styles.iconActionButton, { backgroundColor: colors.danger[50], borderColor: colors.danger[200], opacity: !isOnline ? 0.5 : 1 }]}
             onPress={handleDeleteTenant}
             activeOpacity={0.7}
-            disabled={tenantActionLoading}>
+            disabled={tenantActionLoading || !isOnline}>
             <Trash2 size={16} color={colors.danger[600]} />
           </TouchableOpacity>
         </View>
@@ -532,9 +525,10 @@ export default function TenantDetailScreen() {
                   Billing Configuration
                 </Text>
                 <TouchableOpacity
-                  style={[styles.actionButton, { backgroundColor: colors.primary[500] }]}
+                  style={[styles.actionButton, { backgroundColor: colors.primary[500], opacity: !isOnline ? 0.5 : 1 }]}
                   onPress={openEditBillingModal}
-                  activeOpacity={0.7}>
+                  activeOpacity={0.7}
+                  disabled={!isOnline}>
                   <Edit size={16} color={colors.white} />
                   <Text style={[styles.actionButtonText, { color: colors.white }]}>
                     Edit
@@ -797,67 +791,16 @@ export default function TenantDetailScreen() {
               {editAutoGenerate && (
                 <>
                   <View style={styles.inputContainer}>
-                    <Text style={[styles.label, { color: colors.text.primary }]}>Billing Frequency</Text>
-                    <TouchableOpacity
-                      style={[
-                        styles.pickerButton,
-                        {
-                          backgroundColor: colors.white,
-                          borderColor: colors.border.medium,
-                        },
-                      ]}
-                      onPress={() => setShowFrequencyPicker(true)}
-                      activeOpacity={0.7}
-                      disabled={editLoading}>
-                      <Text
-                        style={[
-                          styles.pickerButtonText,
-                          {
-                            color: colors.text.primary,
-                          },
-                        ]}>
-                        {editFrequency ? (editFrequency.charAt(0).toUpperCase() + editFrequency.slice(1)) : ''}
-                      </Text>
-                      <ChevronDown size={20} color={colors.text.tertiary} />
-                    </TouchableOpacity>
-                  </View>
-
-                  <View style={styles.inputContainer}>
-                    <Text style={[styles.label, { color: colors.text.primary }]}>
-                      {editFrequency === 'monthly' ? 'When is rent due each month?' : 'How often is rent due?'}
-                    </Text>
+                    <Text style={[styles.label, { color: colors.text.primary }]}>When is rent due each month?</Text>
                     <TouchableOpacity
                       style={[styles.pickerButton, { backgroundColor: colors.white, borderColor: colors.border.medium }]}
                       onPress={() => setShowAnchorDayPicker(true)}
                       activeOpacity={0.7}
                       disabled={editLoading}>
-                      <Text style={[styles.pickerButtonText, { color: colors.text.primary }]}>
-                        {editFrequency === 'monthly' ? `📅 Day ${editAnchorDay} • Every Month` : `⏰ Every ${editAnchorDay} days`}
-                      </Text>
+                      <Text style={[styles.pickerButtonText, { color: colors.text.primary }]}>📅 Day ${editAnchorDay} • Every Month</Text>
                       <ChevronDown size={20} color={colors.text.tertiary} />
                     </TouchableOpacity>
-                    <Text style={[styles.summaryLabel, { color: colors.text.secondary, marginTop: spacing.xs }]}>
-                      {editFrequency === 'monthly' 
-                        ? 'Rent is due on the same day every month. Example: Day 2 = Jan 2, Feb 2, Mar 2, Apr 2, etc.' 
-                        : 'Rent is due every X days from the join date. Example: Every 15 days = first payment on join date, then after 15 days, 30 days, etc.'}
-                    </Text>
-
-                    {/* For day-wise, select when the first payment starts */}
-                    {editFrequency === 'day-wise' && (
-                      <>
-                        <DatePicker
-                          value={editDayWiseStartDate}
-                          onChange={setEditDayWiseStartDate}
-                          label="When should the first payment start?"
-                          disabled={editLoading}
-                          required
-                          restrictToNext30Days={true}
-                        />
-                        <Text style={[styles.summaryLabel, { color: colors.text.secondary, marginTop: spacing.xs }]}>
-                          Select when the first payment is due. Subsequent payments will be every {editAnchorDay} days from this date.
-                        </Text>
-                      </>
-                    )}
+                    <Text style={[styles.summaryLabel, { color: colors.text.secondary, marginTop: spacing.xs }]}>Rent is due on the same day every month. Example: Day 2 = Jan 2, Feb 2, Mar 2, Apr 2, etc.</Text>
                   </View>
                 </>
               )}
@@ -886,64 +829,6 @@ export default function TenantDetailScreen() {
         </SafeAreaView>
       </Modal>
 
-      <Modal
-        visible={showFrequencyPicker}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowFrequencyPicker(false)}>
-        <View style={styles.pickerOverlay}>
-          <View style={[styles.pickerContainer, { backgroundColor: colors.white }]}>
-            <View style={[styles.pickerHeader, { borderBottomColor: colors.border.light }]}>
-              <Text style={[styles.pickerTitle, { color: colors.text.primary }]}>
-                Select Frequency
-              </Text>
-            </View>
-
-            <ScrollView style={styles.pickerScrollView}>
-              {(['monthly', 'day-wise'] as BillingConfig['billingCycle'][]).map((freq, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[
-                    styles.pickerOption,
-                    { borderBottomColor: colors.border.light },
-                  ]}
-                  onPress={() => {
-                    setEditFrequency(freq);
-                    setShowFrequencyPicker(false);
-                  }}
-                  activeOpacity={0.7}>
-                  <Text
-                    style={[
-                      styles.pickerOptionText,
-                      {
-                        color:
-                          editFrequency === freq
-                            ? colors.primary[500]
-                            : colors.text.primary,
-                        fontWeight:
-                          editFrequency === freq
-                            ? typography.fontWeight.semibold
-                            : typography.fontWeight.regular,
-                      },
-                    ]}>
-                    {freq ? (freq.charAt(0).toUpperCase() + freq.slice(1)) : ''}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            <TouchableOpacity
-              style={[styles.pickerCloseButton, { borderTopColor: colors.border.light }]}
-              onPress={() => setShowFrequencyPicker(false)}
-              activeOpacity={0.7}>
-              <Text style={[styles.pickerCloseButtonText, { color: colors.text.secondary }]}>
-                Cancel
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
       {/* Anchor Day Picker Modal */}
       <Modal
         visible={showAnchorDayPicker}
@@ -953,15 +838,10 @@ export default function TenantDetailScreen() {
         <View style={styles.pickerOverlay}>
           <View style={[styles.pickerContainer, { backgroundColor: colors.white }]}>
             <View style={[styles.pickerHeader, { borderBottomColor: colors.border.light }]}>
-              <Text style={[styles.pickerTitle, { color: colors.text.primary }]}>
-                {editFrequency === 'monthly' ? 'When is rent due each month?' : 'Rent due every how many days?'}
-              </Text>
+              <Text style={[styles.pickerTitle, { color: colors.text.primary }]}>When is rent due each month?</Text>
             </View>
             <ScrollView style={styles.pickerScrollView}>
-              {(editFrequency === 'monthly' 
-                ? Array.from({ length: 31 }, (_, i) => i + 1)
-                : [1, 3, 5, 7, 10, 14, 15, 21, 30, 45, 60, 90]
-              ).map((day) => (
+              {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
                 <TouchableOpacity
                   key={day}
                   style={[styles.pickerOption, { borderBottomColor: colors.border.light }]}
@@ -982,7 +862,7 @@ export default function TenantDetailScreen() {
                             : typography.fontWeight.regular,
                       },
                     ]}>
-                    {editFrequency === 'monthly' ? `Day ${day} • Every Month` : `Every ${day} days`}
+                    Day ${day} • Every Month
                   </Text>
                 </TouchableOpacity>
               ))}

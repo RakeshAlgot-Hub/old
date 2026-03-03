@@ -18,11 +18,13 @@ import { ChevronLeft, Building2, MapPin, Trash2, Edit, Archive } from 'lucide-re
 import { spacing, typography, radius } from '@/theme';
 import { useTheme } from '@/context/ThemeContext';
 import { useProperty } from '@/context/PropertyContext';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 
 export default function ManagePropertiesScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const { properties, loading, refreshProperties } = useProperty();
+  const isOnline = useNetworkStatus();
   const [showArchiveWarning, setShowArchiveWarning] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState<any>(null);
   const [warningAction, setWarningAction] = useState<'edit' | 'delete' | null>(null);
@@ -110,17 +112,19 @@ export default function ManagePropertiesScreen() {
 
               <View style={styles.actionsRow}>
                 <TouchableOpacity
-                  style={[styles.actionButton, { backgroundColor: colors.primary[50], borderColor: colors.primary[200] }]}
+                  style={[styles.actionButton, { backgroundColor: colors.primary[50], borderColor: colors.primary[200], opacity: !isOnline ? 0.5 : 1 }]}
                   onPress={() => handleEditProperty(property)}
-                  activeOpacity={0.7}>
+                  activeOpacity={0.7}
+                  disabled={!isOnline}>
                   <Edit size={16} color={colors.primary[600]} />
                   <Text style={[styles.actionText, { color: colors.primary[600] }]}>Edit</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.actionButton, { backgroundColor: colors.danger[50], borderColor: colors.danger[200] }]}
+                  style={[styles.actionButton, { backgroundColor: colors.danger[50], borderColor: colors.danger[200], opacity: !isOnline ? 0.5 : 1 }]}
                   onPress={() => handleDeleteProperty(property)}
-                  activeOpacity={0.7}>
+                  activeOpacity={0.7}
+                  disabled={!isOnline}>
                   <Trash2 size={16} color={colors.danger[600]} />
                   <Text style={[styles.actionText, { color: colors.danger[600] }]}>Delete</Text>
                 </TouchableOpacity>
@@ -130,7 +134,7 @@ export default function ManagePropertiesScreen() {
         )}
       </ScrollView>
 
-      <FAB onPress={handleAddProperty} />
+      <FAB onPress={handleAddProperty} disabled={!isOnline} />
 
       <ArchiveWarningModal
         visible={showArchiveWarning}

@@ -18,6 +18,7 @@ import { UserPlus, ChevronLeft, ChevronDown, Calendar } from 'lucide-react-nativ
 import { spacing, typography, radius, shadows } from '@/theme';
 import { useTheme } from '@/context/ThemeContext';
 import { useProperty } from '@/context/PropertyContext';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { tenantService, roomService, bedService } from '@/services/apiClient';
 import type { Room, Bed, BillingFrequency, BillingConfig, PaginatedResponse } from '@/services/apiTypes';
 import EmptyState from '@/components/EmptyState';
@@ -31,6 +32,7 @@ export default function AddTenantScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const { selectedPropertyId } = useProperty();
+  const isOnline = useNetworkStatus();
 
   const [name, setName] = useState('John Doe');
   const [documentId, setDocumentId] = useState('1234567890');
@@ -51,9 +53,6 @@ export default function AddTenantScreen() {
   const [showRoomPicker, setShowRoomPicker] = useState(false);
   const [showBedPicker, setShowBedPicker] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-
-  // Billing settings removed
-  const [showFrequencyPicker, setShowFrequencyPicker] = useState(false);
 
   useEffect(() => {
     if (selectedPropertyId) {
@@ -419,28 +418,36 @@ export default function AddTenantScreen() {
               value={joinDate}
               onChange={setJoinDate}
               label="Join Date"
-              disabled={loading}
+              disabled={loading || !isOnline}
               required
             />
 
             {/* Billing settings removed */}
+
+            {!isOnline && (
+              <View style={[styles.offlineWarning, { backgroundColor: colors.warning[50], borderColor: colors.warning[200] }]}>
+                <Text style={[styles.offlineWarningText, { color: colors.warning[900] }]}>
+                  📡 Offline - You cannot add tenants without internet connection
+                </Text>
+              </View>
+            )}
 
             <TouchableOpacity
               style={[
                 styles.submitButton,
                 {
                   backgroundColor: colors.primary[500],
-                  opacity: loading || !isFormValid() ? 0.6 : 1,
+                  opacity: loading || !isFormValid() || !isOnline ? 0.6 : 1,
                 },
               ]}
               onPress={handleNext}
               activeOpacity={0.8}
-              disabled={loading || !isFormValid()}>
+              disabled={loading || !isFormValid() || !isOnline}>
               {loading ? (
                 <ActivityIndicator color={colors.white} size="small" />
               ) : (
                 <Text style={[styles.submitButtonText, { color: colors.white }]}> 
-                  Next
+                  {isOnline ? 'Next' : 'Offline'}
                 </Text>
               )}
             </TouchableOpacity>
@@ -560,35 +567,6 @@ export default function AddTenantScreen() {
             <TouchableOpacity
               style={[styles.modalCloseButton, { borderTopColor: colors.border.light }]}
               onPress={() => setShowBedPicker(false)}
-              activeOpacity={0.7}>
-              <Text style={[styles.modalCloseButtonText, { color: colors.text.secondary }]}>
-                Cancel
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
-        visible={showFrequencyPicker}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowFrequencyPicker(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContainer, { backgroundColor: colors.white }]}>
-            <View style={[styles.modalHeader, { borderBottomColor: colors.border.light }]}>
-              <Text style={[styles.modalTitle, { color: colors.text.primary }]}>
-                Select Billing Frequency
-              </Text>
-            </View>
-
-            <ScrollView style={styles.modalScrollView}>
-              {/* Billing frequency selection removed */}
-            </ScrollView>
-
-            <TouchableOpacity
-              style={[styles.modalCloseButton, { borderTopColor: colors.border.light }]}
-              onPress={() => setShowFrequencyPicker(false)}
               activeOpacity={0.7}>
               <Text style={[styles.modalCloseButtonText, { color: colors.text.secondary }]}>
                 Cancel
@@ -754,6 +732,17 @@ const styles = StyleSheet.create({
   },
   submitButtonText: {
     fontSize: typography.fontSize.md,
+    fontWeight: typography.fontWeight.semibold,
+  },
+  offlineWarning: {
+    borderRadius: radius.md,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  offlineWarningText: {
+    fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.semibold,
   },
   modalOverlay: {

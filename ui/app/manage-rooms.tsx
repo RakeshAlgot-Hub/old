@@ -20,6 +20,7 @@ import { ChevronLeft, DoorOpen, Bed, IndianRupee, Eye, Archive, Trash2, Edit } f
 import { spacing, typography, radius } from '@/theme';
 import { useTheme } from '@/context/ThemeContext';
 import { useProperty } from '@/context/PropertyContext';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { roomService } from '@/services/apiClient';
 import type { Room, PaginatedResponse } from '@/services/apiTypes';
 import { cacheKeys, getScreenCache, setScreenCache } from '@/services/screenCache';
@@ -30,6 +31,7 @@ export default function ManageRoomsScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const { selectedPropertyId, selectedProperty, loading: propertyLoading } = useProperty();
+  const isOnline = useNetworkStatus();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -261,17 +263,19 @@ export default function ManageRoomsScreen() {
                   {room.active !== false && (
                     <>
                       <TouchableOpacity
-                        style={[styles.actionButton, { backgroundColor: colors.primary[50], borderColor: colors.primary[200] }]}
+                        style={[styles.actionButton, { backgroundColor: colors.primary[50], borderColor: colors.primary[200], opacity: !isOnline ? 0.5 : 1 }]}
                         onPress={() => handleEditRoom(room)}
-                        activeOpacity={0.7}>
+                        activeOpacity={0.7}
+                        disabled={!isOnline}>
                         <Edit size={16} color={colors.primary[600]} />
                         <Text style={[styles.actionText, { color: colors.primary[600] }]}>Edit</Text>
                       </TouchableOpacity>
 
                       <TouchableOpacity
-                        style={[styles.actionButton, { backgroundColor: colors.danger[50], borderColor: colors.danger[200] }]}
+                        style={[styles.actionButton, { backgroundColor: colors.danger[50], borderColor: colors.danger[200], opacity: !isOnline ? 0.5 : 1 }]}
                         onPress={() => handleDeleteRoom(room)}
-                        activeOpacity={0.7}>
+                        activeOpacity={0.7}
+                        disabled={!isOnline}>
                         <Trash2 size={16} color={colors.danger[600]} />
                         <Text style={[styles.actionText, { color: colors.danger[600] }]}>Delete</Text>
                       </TouchableOpacity>
@@ -284,7 +288,7 @@ export default function ManageRoomsScreen() {
         )}
       </ScrollView>
 
-      <FAB onPress={handleAddRoom} />
+      <FAB onPress={handleAddRoom} disabled={!isOnline} />
 
       <ArchiveWarningModal
         visible={showArchiveWarning}
