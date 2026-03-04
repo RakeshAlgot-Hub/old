@@ -114,7 +114,7 @@ export default function RootLayout() {
   }
 
   return (
-    <SafeAreaProvider style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
+    <SafeAreaProvider style={{ flex: 1 }}>
       <ThemeProvider>
         <RootLayoutContent />
       </ThemeProvider>

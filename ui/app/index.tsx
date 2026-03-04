@@ -199,7 +199,7 @@ export default function LoginScreen() {
             <View style={styles.inputContainer}>
               <Text style={[styles.label, { color: colors.text.primary }]}>Email</Text>
               <TextInput
-                style={[styles.input, { backgroundColor: colors.white, color: colors.text.primary, borderColor: colors.border.medium }]}
+                style={[styles.input, { backgroundColor: colors.background.secondary, color: colors.text.primary, borderColor: colors.border.medium }]}
                 placeholder="Enter your email"
                 keyboardType="email-address"
                 autoCapitalize="none"
@@ -214,7 +214,7 @@ export default function LoginScreen() {
               <Text style={[styles.label, { color: colors.text.primary }]}>Password</Text>
               <View style={styles.passwordContainer}>
                 <TextInput
-                  style={[styles.passwordInput, { backgroundColor: colors.white, color: colors.text.primary, borderColor: colors.border.medium }]}
+                  style={[styles.passwordInput, { backgroundColor: colors.background.secondary, color: colors.text.primary, borderColor: colors.border.medium }]}
                   placeholder="Enter your password"
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
@@ -252,12 +252,12 @@ export default function LoginScreen() {
 
             <View style={styles.dividerContainer}>
               <View style={[styles.divider, { backgroundColor: colors.border.medium }]} />
-              <Text style={[styles.dividerText, { color: colors.text.secondary }]}>Or continue with</Text>
+              <Text style={[styles.dividerText, { color: colors.text.secondary, backgroundColor: colors.background.primary }]}>Or continue with</Text>
               <View style={[styles.divider, { backgroundColor: colors.border.medium }]} />
             </View>
 
             <TouchableOpacity
-              style={[styles.googleButton, { backgroundColor: colors.white, borderColor: colors.border.medium }]}
+              style={[styles.googleButton, { backgroundColor: colors.background.secondary, borderColor: colors.border.medium }]}
               onPress={handleGoogleSignIn}
               activeOpacity={0.8}
               disabled={loading || isLockedOut || googleLoading || !request}>
@@ -372,7 +372,6 @@ const styles = StyleSheet.create({
     top: -10,
     left: '50%',
     transform: [{ translateX: -15 }],
-    backgroundColor: 'white',
     paddingHorizontal: spacing.md,
     fontSize: typography.fontSize.sm,
   },

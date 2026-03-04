@@ -8,9 +8,9 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
-import ScreenContainer from '@/components/ScreenContainer';
 import Card from '@/components/Card';
 import EmptyState from '@/components/EmptyState';
 import Skeleton from '@/components/Skeleton';
@@ -127,8 +127,10 @@ export default function ManageBedsScreen() {
 
   if (loading) {
     return (
-      <ScreenContainer edges={['top']}>
-        <View style={[styles.header, { backgroundColor: colors.white, borderBottomColor: colors.border.light }]}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background.primary }]}
+        edges={['top', 'bottom']}>
+        <View style={[styles.header, { backgroundColor: colors.background.secondary, borderBottomColor: colors.border.light }]}>
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
@@ -143,14 +145,16 @@ export default function ManageBedsScreen() {
           showsVerticalScrollIndicator={false}>
           <Skeleton height={100} count={3} />
         </ScrollView>
-      </ScreenContainer>
+      </SafeAreaView>
     );
   }
 
   if (!room) {
     return (
-      <ScreenContainer edges={['top']}>
-        <View style={[styles.header, { backgroundColor: colors.white, borderBottomColor: colors.border.light }]}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background.primary }]}
+        edges={['top', 'bottom']}>
+        <View style={[styles.header, { backgroundColor: colors.background.secondary, borderBottomColor: colors.border.light }]}>
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
@@ -169,13 +173,15 @@ export default function ManageBedsScreen() {
             subtitle="The selected room could not be found"
           />
         </ScrollView>
-      </ScreenContainer>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ScreenContainer edges={['top']}>
-      <View style={[styles.header, { backgroundColor: colors.white, borderBottomColor: colors.border.light }]}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background.primary }]}
+      edges={['top', 'bottom']}>
+      <View style={[styles.header, { backgroundColor: colors.background.secondary, borderBottomColor: colors.border.light }]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
@@ -267,11 +273,14 @@ export default function ManageBedsScreen() {
           </>
         )}
       </ScrollView>
-    </ScreenContainer>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
   scrollContent: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xxxl,

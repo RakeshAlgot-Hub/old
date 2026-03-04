@@ -209,9 +209,9 @@ export default function AddTenantScreen() {
           <EmptyState
             icon={UserPlus}
             title="No Available Beds"
-            subtitle="All beds are occupied or no rooms exist yet. Please add rooms and beds first."
-            actionLabel="Go Back"
-            onActionPress={() => router.back()}
+            subtitle="Create a room with beds first, then you can add tenants."
+            actionLabel="Add Room"
+            onActionPress={() => router.push('/manage-properties')}
           />
         </View>
       </SafeAreaView>

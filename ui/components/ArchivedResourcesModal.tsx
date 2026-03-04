@@ -85,7 +85,7 @@ export default function ArchivedResourcesModal({
     return (
       <Card key={item.id} style={styles.archiveCard}>
         <View style={styles.archiveHeader}>
-          <View style={styles.archiveIcon}>{icon}</View>
+          <View style={[styles.archiveIcon, { backgroundColor: colors.background.tertiary }]}>{icon}</View>
           <View style={styles.archiveInfo}>
             <Text style={[styles.archiveName, { color: colors.text.primary }]}>
               {item.name || item.roomNumber || 'Unknown'}
@@ -94,7 +94,7 @@ export default function ArchivedResourcesModal({
               {type.charAt(0).toUpperCase() + type.slice(1)}
             </Text>
           </View>
-          <View style={styles.expirationBadge}>
+          <View style={[styles.expirationBadge, { backgroundColor: colors.background.tertiary }]}>
             <Clock size={14} color={getExpirationColor(days)} />
             <Text
               style={[
@@ -122,7 +122,7 @@ export default function ArchivedResourcesModal({
           </View>
         </View>
 
-        <View style={styles.archiveReasonBox}>
+        <View style={[styles.archiveReasonBox, { backgroundColor: colors.background.tertiary }]}>
           <Text style={[styles.reasonLabel, { color: colors.text.secondary }]}>
             Reason:
           </Text>
@@ -143,7 +143,7 @@ export default function ArchivedResourcesModal({
     <Modal visible={visible} transparent animationType="slide">
       <View style={[styles.container, { backgroundColor: colors.background.primary }]}>
         <View
-          style={[styles.header, { backgroundColor: colors.white, borderBottomColor: colors.border.light }]}
+          style={[styles.header, { backgroundColor: colors.background.secondary, borderBottomColor: colors.border.light }]}
         >
           <Text style={[styles.headerTitle, { color: colors.text.primary }]}>
             Archived Resources
@@ -338,7 +338,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: spacing.md,
-    backgroundColor: '#f5f5f5',
   },
   archiveInfo: {
     flex: 1,
@@ -356,7 +355,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    backgroundColor: '#f5f5f5',
     borderRadius: radius.md,
   },
   expirationText: {
@@ -377,7 +375,6 @@ const styles = StyleSheet.create({
     marginLeft: spacing.sm,
   },
   archiveReasonBox: {
-    backgroundColor: '#f9f9f9',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: radius.sm,

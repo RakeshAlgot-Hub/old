@@ -71,12 +71,29 @@ export interface Payment {
   updatedAt: string;
 }
 
+export interface SubscriptionPeriodOption {
+  period: number; // Billing period in months (0 for free, 1/3/6/12 for paid)
+  price: number; // Price in paise
+  priceText?: string; // Formatted price (e.g., "₹79")
+  pricePerMonth?: number; // For display purposes
+}
+
+export interface PlanMetadata {
+  name: string;
+  properties: number;
+  tenants: number;
+  rooms: number;
+  staff: number;
+  periods: SubscriptionPeriodOption[];
+}
+
 export interface Subscription {
-  id: string;
+  id?: string;
   ownerId: string;
-  plan: 'free' | 'pro' | 'premium';
+  plan: string; // Now supports any plan name
+  period: number; // Billing period in months (0 for free)
   status: 'active' | 'inactive' | 'cancelled';
-  price: number; // Price in paise (₹1 = 100 paise)
+  price: number; // Price in paise for THIS period
   propertyLimit: number;
   roomLimit: number;
   tenantLimit: number;
@@ -85,6 +102,9 @@ export interface Subscription {
   currentPeriodEnd: string;
   createdAt: string;
   updatedAt: string;
+  autoRenewal?: boolean; // Auto-renewal enabled flag
+  razorpaySubscriptionId?: string; // Razorpay recurring subscription ID
+  renewalError?: string; // Last renewal error if any
 }
 
 export interface Usage {
@@ -288,9 +308,21 @@ export interface DashboardStats {
 
 export interface RazorpayCheckoutSession {
   razorpayOrderId: string;
-  amount: number;
+  amount: number; // Final amount (after discount)
+  originalAmount?: number; // Original price
+  discountAmount?: number; // Discount applied
+  couponCode?: string; // Applied coupon code
   currency: string;
   keyId: string;
+}
+
+export interface CouponValidationResponse {
+  isValid: boolean;
+  message: string;
+  originalAmount?: number; // Original price in paise
+  discountAmount?: number; // Discount in paise
+  finalAmount?: number; // Final price after discount
+  discountPercentage?: number; // For percentage discounts
 }
 
 export interface VerifyPaymentRequest {
@@ -301,7 +333,10 @@ export interface VerifyPaymentRequest {
 
 export interface VerifyPaymentResponse {
   success: boolean;
-  subscription: Subscription;
+  subscription?: string; // Plan name
+  period?: number; // Billing period
+  couponApplied?: boolean;
+  couponCode?: string | null;
 }
 
 export interface QuotaWarning {

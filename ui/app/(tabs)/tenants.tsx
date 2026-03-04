@@ -99,7 +99,7 @@ export default function TenantsScreen() {
         setScreenCache(cacheKey, tenantsRes);
       }
     } catch (err: any) {
-      if (err?.code === 'upgrade_required') {
+      if (err?.code === 'SUBSCRIPTION_LIMIT_EXCEEDED' || err?.details?.status === 402) {
         setShowUpgradeModal(true);
       } else {
         setError(err?.message || 'Failed to load tenants');

@@ -6,7 +6,6 @@ from app.models.tenant_schema import TenantCreate, TenantUpdate
 router = APIRouter(prefix="/tenants", tags=["tenants"])
 tenant_service = TenantService()
 
-@router.get("/")
 @router.get("")
 async def get_tenants(
     request: Request,
@@ -50,7 +49,6 @@ async def get_tenant(request: Request, tenant_id: str):
         return {"data": tenant.model_dump()}
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
-@router.post("/")
 @router.post("")
 async def create_tenant(request: Request, tenant: TenantCreate):
     try:

@@ -83,10 +83,10 @@ export default function PropertyFormScreen() {
         
         await refreshProperties();
         
-        // Switch to the newly created property and navigate to add room
+        // Switch to the newly created property and go to My Properties screen
         if (newPropertyId) {
           switchProperty(newPropertyId);
-          router.replace('/room-form');
+          router.replace('/manage-properties');
         } else {
           router.back();
         }

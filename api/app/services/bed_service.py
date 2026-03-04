@@ -59,15 +59,32 @@ class BedService:
         # Get unique room IDs
         room_ids = list(set(bed["roomId"] for bed in beds))
         
-        # Fetch room details
+        # Convert room IDs (hex strings) back to ObjectId for querying
+        from bson import ObjectId
+        object_ids = []
+        for room_id in room_ids:
+            try:
+                object_ids.append(ObjectId(room_id))
+            except:
+                # If conversion fails, skip this room ID
+                pass
+        
+        if not object_ids:
+            return []
+        
+        # Fetch room details by _id or include rooms where active is true OR active field doesn't exist
         rooms_cursor = self.db["rooms"].find({
-            "id": {"$in": room_ids},
-            "active": True
+            "_id": {"$in": object_ids},
+            "$or": [
+                {"active": True},
+                {"active": {"$exists": False}}
+            ]
         })
         rooms_dict = {}
         async for room_doc in rooms_cursor:
-            rooms_dict[room_doc["id"]] = {
-                "id": room_doc["id"],
+            room_id = str(room_doc["_id"])
+            rooms_dict[room_id] = {
+                "id": room_id,
                 "roomNumber": room_doc["roomNumber"],
                 "floor": room_doc["floor"],
                 "price": room_doc["price"],

@@ -6,12 +6,14 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
+  Switch,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
-import ScreenContainer from '@/components/ScreenContainer';
 import Card from '@/components/Card';
-import UpgradeModal from '@/components/UpgradeModal';
 import ArchivedResourcesModal from '@/components/ArchivedResourcesModal';
 import Skeleton from '@/components/Skeleton';
 import ApiErrorCard from '@/components/ApiErrorCard';
@@ -23,29 +25,25 @@ import {
   MessageSquare,
   Check,
   Lock,
-  Archive,
   AlertTriangle,
   ChevronRight,
+  ChevronDown,
+  RefreshCw,
+  Trash2,
+  Power,
 } from 'lucide-react-native';
 import { spacing, typography, radius, shadows } from '@/theme';
 import { useTheme } from '@/context/ThemeContext';
 import { subscriptionService } from '@/services/apiClient';
-import type { Subscription, Usage, PlanLimits, ArchivedResourcesResponse } from '@/services/apiTypes';
+import type { Subscription, Usage, ArchivedResourcesResponse, PlanMetadata } from '@/services/apiTypes';
 import { cacheKeys, getScreenCache, setScreenCache } from '@/services/screenCache';
-
-type Plan = 'free' | 'pro' | 'premium';
-
-interface PlanComparison {
-  id: Plan;
-  name: string;
-  popular?: boolean;
-  limits?: PlanLimits;
-}
+import UpgradeModal from '@/components/UpgradeModal';
 
 interface SubscriptionCachePayload {
   activeSubscription: Subscription | null;
   allSubscriptions: Subscription[];
   usage: Usage;
+  allPlans: PlanMetadata[];
 }
 
 const SUBSCRIPTION_CACHE_STALE_MS = 2 * 60 * 1000;
@@ -55,6 +53,7 @@ export default function SubscriptionScreen() {
   const router = useRouter();
   const [activeSubscription, setActiveSubscription] = useState<Subscription | null>(null);
   const [allSubscriptions, setAllSubscriptions] = useState<Subscription[]>([]);
+  const [allPlans, setAllPlans] = useState<PlanMetadata[]>([]);
   const [usage, setUsage] = useState<Usage | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -63,11 +62,29 @@ export default function SubscriptionScreen() {
   const [showArchivedResources, setShowArchivedResources] = useState(false);
   const [archivedResources, setArchivedResources] = useState<ArchivedResourcesResponse | null>(null);
   const [loadingArchived, setLoadingArchived] = useState(false);
+  const [autoRenewal, setAutoRenewal] = useState(true);
+  const [togglingRenewal, setTogglingRenewal] = useState(false);
+  const [cancellingSubscription, setCancellingSubscription] = useState(false);
+  const [selectedPeriods, setSelectedPeriods] = useState<{ [key: string]: number }>({});
+  const [upgradingPlan, setUpgradingPlan] = useState<string | null>(null);
 
   const formatPrice = (paise: number) => {
     if (paise === 0) return 'Free';
     const rupees = paise / 100;
-    return `₹${rupees.toFixed(rupees === Math.floor(rupees) ? 0 : 2)}`;
+    return `₹${rupees.toLocaleString('en-IN', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    })}`;
+  };
+
+  const getPeriodLabel = (period: number) => {
+    if (period === 0) return 'Forever';
+    if (period === 1) return '1 Month';
+    return `${period} Months`;
+  };
+
+  const formatLimit = (value: number) => {
+    return value === 999 ? 'Unlimited' : `${value}`;
   };
 
   const fetchSubscriptionData = async () => {
@@ -77,6 +94,7 @@ export default function SubscriptionScreen() {
       setActiveSubscription(cachedData.activeSubscription);
       setAllSubscriptions(cachedData.allSubscriptions);
       setUsage(cachedData.usage);
+      setAllPlans(cachedData.allPlans);
       setError(null);
       setLoading(false);
       return;
@@ -86,13 +104,15 @@ export default function SubscriptionScreen() {
       setLoading(true);
       setError(null);
 
-      const [allSubsRes, usageRes] = await Promise.all([
+      const [allSubsRes, usageRes, plansRes] = await Promise.all([
         subscriptionService.getAllSubscriptions(),
         subscriptionService.getUsage(),
+        subscriptionService.getPlans(),
       ]);
 
       const allSubs = allSubsRes.data.subscriptions;
       const usageData = usageRes.data;
+      const plans = plansRes.data.plans;
 
       // Find the active subscription
       const active = allSubs.find(sub => sub.status === 'active');
@@ -100,11 +120,27 @@ export default function SubscriptionScreen() {
       setActiveSubscription(active || null);
       setAllSubscriptions(allSubs);
       setUsage(usageData);
+      setAllPlans(plans);
+      
+      // Set auto-renewal status from active subscription
+      if (active) {
+        setAutoRenewal(active.autoRenewal !== false);
+      }
+      
+      // Initialize selected periods for each plan (default to first period)
+      const periods: { [key: string]: number } = {};
+      plans.forEach(plan => {
+        if (plan.periods && plan.periods.length > 0) {
+          periods[plan.name] = plan.periods[0].period;
+        }
+      });
+      setSelectedPeriods(periods);
 
       setScreenCache(cacheKey, {
         activeSubscription: active || null,
         allSubscriptions: allSubs,
         usage: usageData,
+        allPlans: plans,
       });
     } catch (err: any) {
       console.error('Subscription fetch error:', err);
@@ -152,55 +188,93 @@ export default function SubscriptionScreen() {
     }
   };
 
-  const handleSelectPlan = async (plan: Plan) => {
+  const handleSelectPlan = async (_planName: string) => {
     try {
       setLoading(true);
-      const response = await subscriptionService.updateSubscription(plan);
-      
-      // Refresh all subscriptions to get updated status
-      const allSubsRes = await subscriptionService.getAllSubscriptions();
-      const allSubs = allSubsRes.data.subscriptions;
-      const active = allSubs.find(sub => sub.status === 'active');
-      
-      setActiveSubscription(active || null);
-      setAllSubscriptions(allSubs);
-      
-      // Clear cache to force refresh  
+
       setScreenCache(cacheKeys.subscription(), null);
+      await fetchSubscriptionData();
       setError(null);
-      
-      // Refresh archived resources
+
       await fetchArchivedResources();
     } catch (err: any) {
-      const errorMessage = err?.message || 'Failed to update subscription. Please try again.';
+      const errorMessage = err?.message || 'Failed to refresh subscription. Please try again.';
       setError(errorMessage);
-      console.error('Failed to update subscription:', err);
+      console.error('Failed to refresh subscription:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const buildComparisonPlans = (): PlanComparison[] => {
-    return allSubscriptions.map(sub => ({
-      id: sub.plan as Plan,
-      name: sub.plan.charAt(0).toUpperCase() + sub.plan.slice(1),
-      popular: sub.plan === 'pro',
-      limits: {
-        properties: sub.propertyLimit,
-        tenants: sub.tenantLimit,
-        rooms: sub.roomLimit,
-        staff: sub.staffLimit,
-        price: sub.price,
-      },
-    }));
+  const handleToggleAutoRenewal = async (enabled: boolean) => {
+    try {
+      setTogglingRenewal(true);
+      const endpoint = enabled ? 'auto-renewal/enable' : 'auto-renewal/disable';
+      await subscriptionService[enabled ? 'enableAutoRenewal' : 'disableAutoRenewal']();
+      setAutoRenewal(enabled);
+      Alert.alert(
+        'Success',
+        enabled 
+          ? 'Auto-renewal enabled. Your subscription will renew automatically.'
+          : 'Auto-renewal disabled. Your current subscription will expire after the period ends.'
+      );
+    } catch (err: any) {
+      const errorMessage = err?.message || `Failed to ${enabled ? 'enable' : 'disable'} auto-renewal.`;
+      Alert.alert('Error', errorMessage);
+      setAutoRenewal(!enabled);
+    } finally {
+      setTogglingRenewal(false);
+    }
+  };
+
+  const handleCancelSubscription = () => {
+    Alert.alert(
+      'Cancel Subscription?',
+      'You will lose access to Pro/Premium features and downgrade to the free plan. This action cannot be undone.',
+      [
+        { text: 'Keep My Plan', style: 'cancel' },
+        {
+          text: 'Cancel Subscription',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setCancellingSubscription(true);
+              await subscriptionService.cancelSubscription();
+              
+              // Refresh subscription data
+              setScreenCache(cacheKeys.subscription(), null);
+              await fetchSubscriptionData();
+              
+              Alert.alert('Success', 'Subscription cancelled. You have been downgraded to the free plan.');
+            } catch (err: any) {
+              const errorMessage = err?.message || 'Failed to cancel subscription. Please try again.';
+              Alert.alert('Error', errorMessage);
+            } finally {
+              setCancellingSubscription(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handlePeriodChange = (planName: string, period: number) => {
+    setSelectedPeriods(prev => ({ ...prev, [planName]: period }));
+  };
+
+  const handleUpgradePlan = async (planName: string) => {
+    setUpgradingPlan(planName);
+    setShowUpgradeModal(true);
+    // The UpgradeModal will handle the actual upgrade
   };
 
   const currentPlan = activeSubscription?.plan || 'free';
-  const isLocked = currentPlan === 'free';
-
-  const formatLimit = (value: number) => {
-    return value === 999 ? '∞' : value;
-  };
+  const isLocked = !!activeSubscription && !!usage && (
+    usage.properties >= activeSubscription.propertyLimit ||
+    usage.tenants >= activeSubscription.tenantLimit ||
+    usage.rooms >= activeSubscription.roomLimit ||
+    (usage.staff ?? 0) >= activeSubscription.staffLimit
+  );
 
   const calculateProgressPercentage = (used: number, limit: number) => {
     if (limit === 999) return 10;
@@ -208,8 +282,10 @@ export default function SubscriptionScreen() {
   };
 
   return (
-    <ScreenContainer edges={['top']}>
-      <View style={[styles.header, { backgroundColor: colors.white, borderBottomColor: colors.border.light }]}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background.primary }]}
+      edges={['top', 'bottom']}>
+      <View style={[styles.header, { backgroundColor: colors.background.secondary, borderBottomColor: colors.border.light }]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
@@ -242,10 +318,10 @@ export default function SubscriptionScreen() {
           <ApiErrorCard error={error} onRetry={handleRetry} />
         ) : activeSubscription && usage ? (
           <>
-            <Card style={styles.currentPlanCard}>
-              <View style={[styles.planBadge, { backgroundColor: colors.warning[50] }]}>
-                <Crown size={20} color={colors.warning[500]} />
-                <Text style={[styles.planBadgeText, { color: colors.warning[700] }]}>Current Plan</Text>
+            <Card style={[styles.currentPlanCard, { borderColor: colors.primary[500], backgroundColor: colors.background.tertiary }]}>
+              <View style={[styles.planBadge, { backgroundColor: colors.primary[500] }]}>
+                <Crown size={20} color={colors.white} />
+                <Text style={[styles.planBadgeText, { color: colors.white, fontWeight: typography.fontWeight.bold }]}>Current Plan</Text>
               </View>
               <Text style={[styles.currentPlanName, { color: colors.text.primary }]}>
                 {currentPlan.charAt(0).toUpperCase() + currentPlan.slice(1)}
@@ -262,6 +338,48 @@ export default function SubscriptionScreen() {
                 {formatPrice(activeSubscription.price)}/month
               </Text>
             </Card>
+
+            {currentPlan !== 'free' && (
+              <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Subscription Settings</Text>
+
+                <Card style={styles.settingsCard}>
+                  <View style={styles.settingRow}>
+                    <View style={styles.settingContent}>
+                      <View style={styles.settingHeader}>
+                        <RefreshCw size={18} color={colors.primary[500]} />
+                        <Text style={[styles.settingLabel, { color: colors.text.primary }]}>Auto-Renewal</Text>
+                      </View>
+                      <Text style={[styles.settingDescription, { color: colors.text.tertiary }]}>
+                        {autoRenewal ? 'Your subscription will renew automatically' : 'Your subscription will expire after this period'}
+                      </Text>
+                    </View>
+                    <Switch
+                      value={autoRenewal}
+                      onValueChange={handleToggleAutoRenewal}
+                      disabled={togglingRenewal}
+                      trackColor={{ false: colors.border.light, true: colors.primary[400] }}
+                      thumbColor={autoRenewal ? colors.primary[500] : colors.neutral[400]}
+                    />
+                  </View>
+                </Card>
+
+                <TouchableOpacity
+                  style={[styles.cancelButton, { borderColor: colors.danger[200], backgroundColor: colors.danger[50] }]}
+                  onPress={handleCancelSubscription}
+                  disabled={cancellingSubscription}
+                  activeOpacity={0.7}>
+                  {cancellingSubscription ? (
+                    <ActivityIndicator size="small" color={colors.danger[600]} />
+                  ) : (
+                    <>
+                      <Trash2 size={18} color={colors.danger[600]} />
+                      <Text style={[styles.cancelButtonText, { color: colors.danger[600] }]}>Cancel Subscription</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            )}
 
             <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Usage Limits</Text>
@@ -292,7 +410,7 @@ export default function SubscriptionScreen() {
                     ]}
                   />
                 </View>
-                <Text style={[styles.limitDescription, { color: colors.text.tertiary }]}>
+                <Text style={[styles.limitDescription, { color: colors.text.tertiary, display: 'none' }]}>
                   Total number of properties you can create
                 </Text>
               </Card>
@@ -323,7 +441,7 @@ export default function SubscriptionScreen() {
                     ]}
                   />
                 </View>
-                <Text style={[styles.limitDescription, { color: colors.text.tertiary }]}>
+                <Text style={[styles.limitDescription, { color: colors.text.tertiary, display: 'none' }]}>
                   Maximum tenants allowed per property (not total)
                 </Text>
               </Card>
@@ -351,7 +469,7 @@ export default function SubscriptionScreen() {
                     ]}
                   />
                 </View>
-                <Text style={[styles.limitDescription, { color: colors.text.tertiary }]}>
+                <Text style={[styles.limitDescription, { color: colors.text.tertiary, display: 'none' }]}>
                   Maximum rooms allowed per property (not total)
                 </Text>
               </Card>
@@ -379,7 +497,7 @@ export default function SubscriptionScreen() {
                     ]}
                   />
                 </View>
-                <Text style={[styles.limitDescription, { color: colors.text.tertiary }]}>
+                <Text style={[styles.limitDescription, { color: colors.text.tertiary, display: 'none' }]}>
                   Maximum staff members allowed per property (not total)
                 </Text>
               </Card>
@@ -424,78 +542,66 @@ export default function SubscriptionScreen() {
             )}
 
             <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Compare Plans</Text>
+              <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Available Plans</Text>
 
-              {buildComparisonPlans().map((plan) => (
-                <View key={plan.id} style={styles.comparisonCardWrapper}>
-                  {isLocked && plan.id !== 'free' && (
-                    <View style={styles.lockedOverlay}>
-                      <View style={styles.lockedContent}>
-                        <Lock size={32} color={colors.white} />
-                        <Text style={[styles.lockedText, { color: colors.white }]}>Upgrade Required</Text>
+              {allPlans.filter((plan) => plan.name !== currentPlan).map((plan) => {
+                const selectedPeriod = selectedPeriods[plan.name] || (plan.periods && plan.periods.length > 0 ? plan.periods[0].period : 1);
+                const periodData = plan.periods?.find(p => p.period === selectedPeriod);
+                const price = periodData?.price || 0;
+                
+                return (
+                  <Card key={plan.name} style={[styles.planCard, { borderColor: colors.border.light }]}>
+                    <View style={styles.planHeader}>
+                      <View style={styles.planNameContainer}>
+                        <Text style={[styles.planName, { color: colors.text.primary }]}>
+                          {plan.name.charAt(0).toUpperCase() + plan.name.slice(1)}
+                        </Text>
+                        <View style={styles.planLimitsCompact}>
+                          <Text style={[styles.limitBadge, { color: colors.text.tertiary }]}>
+                            {plan.properties} {plan.properties === 1 ? 'property' : 'properties'}
+                          </Text>
+                          <Text style={[styles.limitSeparator, { color: colors.text.tertiary }]}>•</Text>
+                          <Text style={[styles.limitBadge, { color: colors.text.tertiary }]}>
+                            {plan.tenants} tenants
+                          </Text>
+                        </View>
                       </View>
+                      
+                      {plan.periods && plan.periods.length > 0 && (
+                        <View style={styles.planPricing}>
+                          <View style={[styles.periodSelector, { borderColor: colors.border.medium, backgroundColor: colors.background.tertiary }]}>
+                            <TouchableOpacity
+                              style={styles.periodDropdown}
+                              onPress={() => {
+                                // Show period selector modal or action sheet
+                                const currentIndex = plan.periods.findIndex(p => p.period === selectedPeriod);
+                                const nextIndex = (currentIndex + 1) % plan.periods.length;
+                                handlePeriodChange(plan.name, plan.periods[nextIndex].period);
+                              }}
+                              activeOpacity={0.7}>
+                              <Text style={[styles.periodText, { color: colors.text.primary }]}>
+                                {getPeriodLabel(selectedPeriod)}
+                              </Text>
+                              <ChevronDown size={16} color={colors.text.secondary} />
+                            </TouchableOpacity>
+                          </View>
+                          <Text style={[styles.planPrice, { color: colors.primary[500] }]}>
+                            {formatPrice(price)}
+                          </Text>
+                        </View>
+                      )}
                     </View>
-                  )}
-                  <Card
-                    style={[
-                      styles.comparisonCard,
-                      isLocked && plan.id !== 'free' ? styles.comparisonCardBlurred : undefined,
-                      plan.popular ? { borderWidth: 2, borderColor: colors.primary[500] } : undefined,
-                    ] as any}>
-                    {plan.popular && (
-                      <View style={[styles.popularBadge, { backgroundColor: colors.primary[500] }]}>
-                        <Text style={[styles.popularBadgeText, { color: colors.white }]}>Most Popular</Text>
-                      </View>
-                    )}
-                    <Text style={[styles.comparisonPlanName, { color: colors.text.primary }]}>{plan.name}</Text>
 
-                    {plan.limits && (
-                      <>
-                        <View style={styles.priceRow}>
-                          <Text style={[styles.comparisonPrice, { color: colors.text.primary }]}>
-                            {formatPrice(plan.limits.price || 0)}
-                          </Text>
-                          <Text style={[styles.pricePeriod, { color: colors.text.secondary }]}>
-                            {plan.limits.price === 0 ? 'Forever' : '/month'}
-                          </Text>
-                        </View>
-                        <View style={styles.featuresContainer}>
-                        <View style={styles.featureRow}>
-                          <Check size={16} color={colors.success[500]} />
-                          <Text style={[styles.featureText, { color: colors.text.primary }]}>
-                            {formatLimit(plan.limits.properties)} {plan.limits.properties === 999 ? 'properties' : plan.limits.properties === 1 ? 'property' : 'properties'}
-                          </Text>
-                        </View>
-                        <View style={styles.featureRow}>
-                          <Check size={16} color={colors.success[500]} />
-                          <Text style={[styles.featureText, { color: colors.text.primary }]}>
-                            {formatLimit(plan.limits.tenants)} {plan.limits.tenants === 999 ? 'tenants' : plan.limits.tenants === 1 ? 'tenant' : 'tenants'} per property
-                          </Text>
-                        </View>
-                        <View style={styles.featureRow}>
-                          <Check size={16} color={colors.success[500]} />
-                          <Text style={[styles.featureText, { color: colors.text.primary }]}>
-                            {formatLimit(plan.limits.rooms)} {plan.limits.rooms === 999 ? 'rooms' : plan.limits.rooms === 1 ? 'room' : 'rooms'} per property
-                          </Text>
-                        </View>
-                        <View style={styles.featureRow}>
-                          <Check size={16} color={colors.success[500]} />
-                          <Text style={[styles.featureText, { color: colors.text.primary }]}>
-                            {formatLimit(plan.limits.staff ?? 0)} {(plan.limits.staff ?? 0) === 999 ? 'staff' : (plan.limits.staff ?? 0) === 1 ? 'staff member' : 'staff members'} per property
-                          </Text>
-                        </View>
-                        </View>
-                      </>
-                    )}
-
-                    {currentPlan === plan.id && (
-                      <View style={[styles.currentBadge, { backgroundColor: colors.success[100] }]}>
-                        <Text style={[styles.currentBadgeText, { color: colors.success[700] }]}>Current Plan</Text>
-                      </View>
-                    )}
+                    <TouchableOpacity
+                      style={[styles.upgradeButton, { backgroundColor: colors.primary[500] }]}
+                      onPress={() => handleUpgradePlan(plan.name)}
+                      activeOpacity={0.8}>
+                      <Text style={[styles.upgradeButtonText, { color: colors.white }]}>Upgrade Now</Text>
+                      <ChevronRight size={18} color={colors.white} />
+                    </TouchableOpacity>
                   </Card>
-                </View>
-              ))}
+                );
+              })}
             </View>
           </>
         ) : null}
@@ -503,7 +609,10 @@ export default function SubscriptionScreen() {
 
       <UpgradeModal
         visible={showUpgradeModal}
-        onClose={() => setShowUpgradeModal(false)}
+        onClose={() => {
+          setShowUpgradeModal(false);
+          setUpgradingPlan(null);
+        }}
         onSelectPlan={handleSelectPlan}
         subscriptions={allSubscriptions}
       />
@@ -518,11 +627,14 @@ export default function SubscriptionScreen() {
           setShowUpgradeModal(true);
         }}
       />
-    </ScreenContainer>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
   scrollContent: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xxxl,
@@ -547,8 +659,11 @@ const styles = StyleSheet.create({
   },
   currentPlanCard: {
     alignItems: 'center',
-    paddingVertical: spacing.xl,
+    paddingVertical: spacing.xxl,
+    paddingHorizontal: spacing.lg,
     marginVertical: spacing.lg,
+    borderRadius: radius.lg,
+    borderWidth: 2,
   },
   planBadge: {
     flexDirection: 'row',
@@ -576,9 +691,11 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.sm,
   },
   currentPlanPrice: {
-    fontSize: typography.fontSize.lg,
+    fontSize: typography.fontSize.xxl,
     fontWeight: typography.fontWeight.bold,
     marginTop: spacing.sm,
+    fontFamily: 'System',
+    letterSpacing: -0.5,
   },
   section: {
     marginBottom: spacing.xl,
@@ -595,6 +712,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: spacing.md,
+    height: 44,
   },
   limitIcon: {
     width: 40,
@@ -606,6 +724,7 @@ const styles = StyleSheet.create({
   },
   limitInfo: {
     flex: 1,
+    justifyContent: 'center',
   },
   limitLabel: {
     fontSize: typography.fontSize.sm,
@@ -640,15 +759,76 @@ const styles = StyleSheet.create({
   },
   upgradeButtonText: {
     fontSize: typography.fontSize.md,
-    fontWeight: typography.fontWeight.semibold,
-    marginLeft: spacing.sm,
+    fontWeight: typography.fontWeight.bold,
+    marginRight: spacing.xs,
+  },
+  planCard: {
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+  },
+  planHeader: {
+    marginBottom: spacing.md,
+  },
+  planNameContainer: {
+    marginBottom: spacing.md,
+  },
+  planName: {
+    fontSize: typography.fontSize.xl,
+    fontWeight: typography.fontWeight.bold,
+    marginBottom: spacing.xs,
+  },
+  planLimitsCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  limitBadge: {
+    fontSize: typography.fontSize.xs,
+  },
+  limitSeparator: {
+    fontSize: typography.fontSize.xs,
+    marginHorizontal: spacing.xs,
+  },
+  planPricing: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  periodSelector: {
+    borderWidth: 1,
+    borderRadius: radius.md,
+    overflow: 'hidden',
+  },
+  periodDropdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.xs,
+  },
+  periodText: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.medium,
+  },
+  planPrice: {
+    fontSize: typography.fontSize.xxxl,
+    fontWeight: typography.fontWeight.bold,
+    fontFamily: 'System',
+    letterSpacing: -0.5,
   },
   comparisonCardWrapper: {
     position: 'relative',
-    marginBottom: spacing.md,
+    marginBottom: spacing.lg,
   },
   comparisonCard: {
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   comparisonCardBlurred: {
     opacity: 0.4,
@@ -694,12 +874,14 @@ const styles = StyleSheet.create({
   },
   priceRow: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
     marginBottom: spacing.lg,
   },
   comparisonPrice: {
-    fontSize: typography.fontSize.xxl,
+    fontSize: typography.fontSize.xxxl,
     fontWeight: typography.fontWeight.bold,
+    fontFamily: 'System',
+    letterSpacing: -0.5,
   },
   pricePeriod: {
     fontSize: typography.fontSize.sm,
@@ -712,6 +894,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: spacing.sm,
+    height: 24,
   },
   featureText: {
     fontSize: typography.fontSize.sm,
@@ -723,6 +906,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: radius.md,
     alignItems: 'center',
+    justifyContent: 'center',
+    height: 32,
   },
   currentBadgeText: {
     fontSize: typography.fontSize.sm,
@@ -742,6 +927,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    minHeight: 32,
   },
   archivedText: {
     marginLeft: spacing.md,
@@ -754,4 +940,87 @@ const styles = StyleSheet.create({
   archivedSubtext: {
     fontSize: typography.fontSize.sm,
     marginTop: spacing.xs,
-  },});
+  },
+  pricingContainer: {
+    marginTop: spacing.lg,
+    paddingTop: spacing.lg,
+    borderTopWidth: 1,
+  },
+  pricingTitle: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semibold,
+    marginBottom: spacing.md,
+  },
+  pricingGrid: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  priceCard: {
+    flex: 1,
+    minWidth: '45%',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.lg,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  priceCardPeriod: {
+    fontSize: typography.fontSize.xs,
+    marginBottom: spacing.xs,
+  },
+  priceCardPrice: {
+    fontSize: typography.fontSize.xl,
+    fontWeight: typography.fontWeight.bold,
+    fontFamily: 'System',
+    letterSpacing: -0.5,
+  },
+  priceCardMonthly: {
+    fontSize: typography.fontSize.xs,
+    marginTop: spacing.xs,
+  },
+  settingsCard: {
+    marginBottom: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+  },
+  settingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.lg,
+  },
+  settingContent: {
+    flex: 1,
+  },
+  settingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  settingLabel: {
+    fontSize: typography.fontSize.md,
+    fontWeight: typography.fontWeight.semibold,
+    marginLeft: spacing.sm,
+  },
+  settingDescription: {
+    fontSize: typography.fontSize.sm,
+    lineHeight: 16,
+  },
+  cancelButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    gap: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  cancelButtonText: {
+    fontSize: typography.fontSize.md,
+    fontWeight: typography.fontWeight.semibold,
+  },
+});

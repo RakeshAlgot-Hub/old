@@ -10,7 +10,7 @@ class RazorpayService:
     client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
 
     @staticmethod
-    async def create_order(user_id: str, plan: str, amount: int, currency: str, receipt: str):
+    async def create_order(user_id: str, plan: str, period: int, amount: int, currency: str, receipt: str, coupon_code: str = None):
         order_data = {
             "amount": amount,
             "currency": currency,
@@ -23,10 +23,12 @@ class RazorpayService:
             order_id=order["id"],
             user_id=user_id,
             plan=plan,
+            period=period,
             amount=order["amount"],
             currency=order["currency"],
             status=order["status"],
             receipt=order["receipt"],
+            coupon_code=coupon_code,
             created_at=now,
             updated_at=now
         )
@@ -37,16 +39,17 @@ class RazorpayService:
     async def verify_payment(order_id: str, payment_id: str, signature: str):
         order = await db["razorpay_orders"].find_one({"order_id": order_id})
         if not order:
-            return False, "Order not found"
+            return False, "Order not found", None
         generated_signature = hmac.new(
             settings.RAZORPAY_KEY_SECRET.encode(),
             f"{order_id}|{payment_id}".encode(),
             hashlib.sha256
         ).hexdigest()
         if generated_signature != signature:
-            return False, "Invalid signature"
+            return False, "Invalid signature", None
         await db["razorpay_orders"].update_one(
             {"order_id": order_id},
             {"$set": {"status": "paid", "payment_id": payment_id, "signature": signature, "updated_at": datetime.now().isoformat()}}
         )
-        return True, order["plan"]
+        # Return tuple of (plan, period, coupon_code) so subscription can be updated with all data
+        return True, {"plan": order["plan"], "period": order.get("period", 1)}, order.get("coupon_code")

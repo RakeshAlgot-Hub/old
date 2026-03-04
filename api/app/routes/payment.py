@@ -3,22 +3,29 @@ from typing import List
 from datetime import datetime, date
 from bson import ObjectId
 from ..models.payment_schema import Payment, PaymentCreate, PaymentUpdate, PaymentMethod
-
 from ..services.payment_service import PaymentService
+from app.database.mongodb import getCollection
 
 router = APIRouter(prefix="/payments", tags=["payments"])
 payment_service = PaymentService()
 
+def validate_payment_method(method: str) -> bool:
+    """Validate that payment method is one of the allowed values"""
+    return method in [m.value for m in PaymentMethod]
+
 @router.post("", response_model=Payment)
-@router.post("/", response_model=Payment)
 async def create_payment(request: Request, payment_create: PaymentCreate = Body(...)):
     property_ids = getattr(request.state, "property_ids", [])
 
     if payment_create.propertyId not in property_ids:
         raise HTTPException(status_code=403, detail="Forbidden")
 
+    # Validate payment method
+    if payment_create.method and not validate_payment_method(payment_create.method):
+        raise HTTPException(status_code=400, detail=f"Invalid payment method. Allowed: {[m.value for m in PaymentMethod]}")
+
     try:
-        tenant_doc = await payment_service.get_tenants_collection().find_one({"_id": ObjectId(payment_create.tenantId)})
+        tenant_doc = await getCollection("tenants").find_one({"_id": ObjectId(payment_create.tenantId)})
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid tenantId")
 
@@ -40,6 +47,10 @@ async def create_payment(request: Request, payment_create: PaymentCreate = Body(
 
 @router.patch("/{payment_id}", response_model=Payment)
 async def update_payment(request: Request, payment_id: str, payment_update: PaymentUpdate = Body(...)):
+    # Validate payment method if provided
+    if payment_update.method and not validate_payment_method(payment_update.method):
+        raise HTTPException(status_code=400, detail=f"Invalid payment method. Allowed: {[m.value for m in PaymentMethod]}")
+    
     updated_payment = await payment_service.update_payment(payment_id, payment_update)
     property_ids = getattr(request.state, "property_ids", [])
     if not updated_payment or updated_payment.propertyId not in property_ids:
@@ -256,7 +267,7 @@ async def get_payment(request: Request, payment_id: str):
     # Enrich with tenant name
     if payment.tenantId:
         try:
-            tenant_doc = await payment_service.get_tenants_collection().find_one(
+            tenant_doc = await getCollection("tenants").find_one(
                 {"_id": ObjectId(payment.tenantId)},
                 {"name": 1}
             )
@@ -269,12 +280,12 @@ async def get_payment(request: Request, payment_id: str):
     # Enrich with room number
     if payment.bed:
         try:
-            bed_doc = await payment_service.get_beds_collection().find_one(
+            bed_doc = await getCollection("beds").find_one(
                 {"_id": ObjectId(payment.bed)},
                 {"roomId": 1}
             )
             if bed_doc and bed_doc.get("roomId"):
-                room_doc = await payment_service.get_rooms_collection().find_one(
+                room_doc = await getCollection("rooms").find_one(
                     {"_id": ObjectId(bed_doc["roomId"])},
                     {"roomNumber": 1}
                 )

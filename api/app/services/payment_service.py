@@ -7,18 +7,6 @@ from app.database.mongodb import getCollection
 class PaymentService:
     def __init__(self):
         self.collection = getCollection("payments")
-    
-    def get_tenants_collection(self):
-        """Get tenants collection for enrichment purposes"""
-        return getCollection("tenants")
-    
-    def get_beds_collection(self):
-        """Get beds collection for enrichment purposes"""
-        return getCollection("beds")
-    
-    def get_rooms_collection(self):
-        """Get rooms collection for enrichment purposes"""
-        return getCollection("rooms")
 
     async def get_payment_by_id(self, payment_id: str) -> Optional[Payment]:
         payment = await self.collection.find_one({"_id": ObjectId(payment_id)})
@@ -58,16 +46,28 @@ class PaymentService:
 
     async def get_payment_stats(self):
         payments = await self.collection.find().to_list(length=100)
+        
+        def parse_amount(amount_str):
+            """Parse amount string that may contain currency symbols and commas"""
+            if not amount_str:
+                return 0.0
+            try:
+                # Remove currency symbols and commas, then convert to float
+                cleaned = str(amount_str).replace('₹', '').replace(',', '').strip()
+                return float(cleaned) if cleaned else 0.0
+            except (ValueError, TypeError):
+                return 0.0
+        
         collected = sum(
-            float(p["amount"].replace('₹', '').replace(',', ''))
+            parse_amount(p["amount"])
             for p in payments if p["status"] == PaymentStatus.PAID.value
         )
         pending = sum(
-            float(p["amount"].replace('₹', '').replace(',', ''))
+            parse_amount(p["amount"])
             for p in payments if p["status"] == PaymentStatus.DUE.value
         )
         overdue = sum(
-            float(p["amount"].replace('₹', '').replace(',', ''))
+            parse_amount(p["amount"])
             for p in payments if p["status"] == PaymentStatus.OVERDUE.value
         )
         return {
@@ -100,14 +100,7 @@ class PaymentService:
         if update_data.get("paidDate") and hasattr(update_data["paidDate"], 'isoformat'):
             update_data["paidDate"] = update_data["paidDate"].isoformat()
         
-        # Handle string dates (from frontend)
-        if update_data.get("dueDate") and isinstance(update_data["dueDate"], str):
-            # Already in ISO format, keep as is
-            pass
-        if update_data.get("paidDate") and isinstance(update_data["paidDate"], str):
-            # Already in ISO format, keep as is
-            pass
-        
+
         update_data["updatedAt"] = datetime.now(timezone.utc)
         await self.collection.update_one({"_id": ObjectId(payment_id)}, {"$set": update_data})
         payment.update(update_data)

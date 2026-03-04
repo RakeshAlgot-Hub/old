@@ -44,7 +44,7 @@ class SubscriptionLifecycle:
             grace_period_until = (datetime.now() + timedelta(days=ARCHIVAL_GRACE_PERIOD_DAYS)).isoformat()
             
             # Get target plan limits
-            target_limits = SubscriptionService.get_plan_limits(to_plan)
+            target_limits = await SubscriptionService.get_plan_limits(to_plan)
             
             # Count current resources
             owned_properties = await db["properties"].find(

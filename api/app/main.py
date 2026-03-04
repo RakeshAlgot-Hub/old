@@ -10,9 +10,10 @@ from fastapi.responses import JSONResponse
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 import logging
+from pymongo.errors import OperationFailure
 
 import os
-from app.routes import health, auth, property, room, tenant, bed, subscription, dashboard, staff
+from app.routes import health, auth, property, room, tenant, bed, subscription, dashboard, staff, payment, coupon, plan
 from app.utils.rate_limit import limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -34,101 +35,142 @@ async def ensure_indexes():
     """Create essential indexes for production-grade queries."""
     logger = logging.getLogger(__name__)
     
+    async def create_index_safe(collection, keys, **kwargs):
+        """Safely create an index, ignoring conflicts with existing indexes."""
+        try:
+            db[collection].create_index(keys, **kwargs)
+        except OperationFailure as e:
+            # IndexKeySpecsConflict (code 86) means the index already exists with different specs
+            # This is safe to ignore - the index was already created
+            if e.code == 86:
+                logger.debug(f"Index already exists on {collection} for {keys}, skipping")
+            else:
+                raise
+    
     # ============ USERS COLLECTION ============
-    await db["users"].create_index("email", unique=True)
-    await db["users"].create_index("createdAt")
-    await db["users"].create_index("phone")
+    await create_index_safe("users", "email", unique=True)
+    await create_index_safe("users", "createdAt")
+    await create_index_safe("users", "phone")
     logger.info("✓ Users indexes created")
     
     # ============ TOKEN BLACKLIST COLLECTION ============
-    await db["token_blacklist"].create_index("createdAt", expireAfterSeconds=60*60*24*7)
+    await create_index_safe("token_blacklist", "createdAt", expireAfterSeconds=60*60*24*7)
     logger.info("✓ Token blacklist indexes created")
     
     # ============ PROPERTIES COLLECTION ============
-    await db["properties"].create_index("ownerIds")
-    await db["properties"].create_index("createdAt")
-    await db["properties"].create_index("active")
-    await db["properties"].create_index([("ownerIds", 1), ("active", 1)])
+    await create_index_safe("properties", "ownerIds")
+    await create_index_safe("properties", "createdAt")
+    await create_index_safe("properties", "active")
+    await create_index_safe("properties", [("ownerIds", 1), ("active", 1)])
     logger.info("✓ Properties indexes created")
     
     # ============ ROOMS COLLECTION ============
-    await db["rooms"].create_index("propertyId")
-    await db["rooms"].create_index("active")
-    await db["rooms"].create_index([("propertyId", 1), ("active", 1)])
+    await create_index_safe("rooms", "propertyId")
+    await create_index_safe("rooms", "active")
+    await create_index_safe("rooms", [("propertyId", 1), ("active", 1)])
     logger.info("✓ Rooms indexes created")
     
     # ============ BEDS COLLECTION ============
-    await db["beds"].create_index("propertyId")
-    await db["beds"].create_index("roomId")
-    await db["beds"].create_index("status")
-    await db["beds"].create_index([("propertyId", 1), ("status", 1)])
+    await create_index_safe("beds", "propertyId")
+    await create_index_safe("beds", "roomId")
+    await create_index_safe("beds", "status")
+    await create_index_safe("beds", [("propertyId", 1), ("status", 1)])
     logger.info("✓ Beds indexes created")
     
     # ============ TENANTS COLLECTION ============
-    await db["tenants"].create_index("propertyId")
-    await db["tenants"].create_index("bedId")
-    await db["tenants"].create_index("status")
-    await db["tenants"].create_index([("propertyId", 1), ("autoGeneratePayments", 1)])
-    await db["tenants"].create_index([("propertyId", 1), ("status", 1)])
+    await create_index_safe("tenants", "propertyId")
+    await create_index_safe("tenants", "bedId")
+    await create_index_safe("tenants", "status")
+    await create_index_safe("tenants", [("propertyId", 1), ("autoGeneratePayments", 1)])
+    await create_index_safe("tenants", [("propertyId", 1), ("status", 1)])
     logger.info("✓ Tenants indexes created")
     
     # ============ PAYMENTS COLLECTION ============
-    await db["payments"].create_index("propertyId")
-    await db["payments"].create_index("tenantId")
-    await db["payments"].create_index("status")
-    await db["payments"].create_index("dueDate")
-    await db["payments"].create_index([("propertyId", 1), ("status", 1)])
+    await create_index_safe("payments", "propertyId")
+    await create_index_safe("payments", "tenantId")
+    await create_index_safe("payments", "status")
+    await create_index_safe("payments", "dueDate")
+    await create_index_safe("payments", [("propertyId", 1), ("status", 1)])
     # Unique index to prevent duplicate payments (non-sparse to enforce uniqueness)
-    await db["payments"].create_index([("tenantId", 1), ("dueDate", 1)], unique=True)
+    await create_index_safe("payments", [("tenantId", 1), ("dueDate", 1)], unique=True)
     logger.info("✓ Payments indexes created (including unique tenantId+dueDate)")
     
     # ============ STAFF COLLECTION ============
-    await db["staff"].create_index("propertyId")
-    await db["staff"].create_index("role")
-    await db["staff"].create_index("status")
-    await db["staff"].create_index([("propertyId", 1), ("archived", 1)])
+    await create_index_safe("staff", "propertyId")
+    await create_index_safe("staff", "role")
+    await create_index_safe("staff", "status")
+    await create_index_safe("staff", [("propertyId", 1), ("archived", 1)])
     logger.info("✓ Staff indexes created")
     
     # ============ SUBSCRIPTIONS COLLECTION ============
-    await db["subscriptions"].create_index("ownerId", unique=True)
-    await db["subscriptions"].create_index("planType")
-    await db["subscriptions"].create_index("status")
-    await db["subscriptions"].create_index("createdAt")
+    await create_index_safe("subscriptions", [("ownerId", 1), ("plan", 1)], unique=True)
+    await create_index_safe("subscriptions", "ownerId")
+    await create_index_safe("subscriptions", "status")
+    await create_index_safe("subscriptions", [("ownerId", 1), ("status", 1)])
     logger.info("✓ Subscriptions indexes created")
     
     # ============ EMAIL OTP COLLECTION ============
-    await db["email_otps"].create_index("email")
-    await db["email_otps"].create_index("createdAt", expireAfterSeconds=60*10)  # Auto-delete after 10 minutes
+    await create_index_safe("email_otps", "email")
+    await create_index_safe("email_otps", "createdAt", expireAfterSeconds=60*10)  # Auto-delete after 10 minutes
     logger.info("✓ Email OTP indexes created (TTL: 10 minutes)")
     
     # ============ OTP ATTEMPTS COLLECTION ============
-    await db["otp_attempts"].create_index("email")
-    await db["otp_attempts"].create_index("createdAt", expireAfterSeconds=60*60)  # Auto-delete after 1 hour
+    await create_index_safe("otp_attempts", "email")
+    await create_index_safe("otp_attempts", "createdAt", expireAfterSeconds=60*60)  # Auto-delete after 1 hour
     logger.info("✓ OTP Attempts indexes created (TTL: 1 hour)")
     
     # ============ RAZORPAY ORDERS COLLECTION ============
-    await db["razorpay_orders"].create_index("order_id", unique=True)
-    await db["razorpay_orders"].create_index("propertyId")
-    await db["razorpay_orders"].create_index("createdAt")
+    await create_index_safe("razorpay_orders", "order_id", unique=True)
+    await create_index_safe("razorpay_orders", "propertyId")
+    await create_index_safe("razorpay_orders", "createdAt")
     logger.info("✓ Razorpay Orders indexes created")
+    
+    # ============ COUPONS COLLECTION ============
+    await create_index_safe("coupons", "code", unique=True)
+    await create_index_safe("coupons", "isActive")
+    await create_index_safe("coupons", "expiresAt")
+    await create_index_safe("coupons", "createdAt")
+    logger.info("✓ Coupons indexes created")
+    
+    # ============ PLANS COLLECTION ============
+    await create_index_safe("plans", "name", unique=True)
+    await create_index_safe("plans", "isActive")
+    await create_index_safe("plans", "sort_order")
+    await create_index_safe("plans", "createdAt")
+    logger.info("✓ Plans indexes created")
 
 
 @asynccontextmanager
 async def lifespan(app):
     await ensure_indexes()
     
+    # Initialize default subscription plans (idempotent - only creates if none exist)
+    from app.services.plan_service import PlanService
+    logger = logging.getLogger(__name__)
+    
+    plans_created = await PlanService.create_default_plans()
+    if plans_created > 0:
+        logger.info(f"✓ Created {plans_created} default subscription plans (free, pro, premium)")
+    else:
+        logger.info("✓ Subscription plans already exist")
+    
     # Initialize APScheduler for background jobs
     scheduler = AsyncIOScheduler()
-    logger = logging.getLogger(__name__)
     
     # Import here to avoid circular imports
     from app.services.tenant_service import TenantService
+    from app.services.razorpay_subscription_service import RazorpaySubscriptionService
     tenant_service = TenantService()
     
     # Wrapper for scheduled job to add logging
     async def generate_payments_job():
         result = await tenant_service.generate_monthly_payments()
         # Result already contains timing info - logged by service
+        return result
+    
+    # Wrapper for auto-renewal job
+    async def auto_renewal_job():
+        result = await RazorpaySubscriptionService.check_and_renew_subscriptions()
         return result
     
     # Job 1: Generate monthly payments daily at 00:05 UTC
@@ -144,11 +186,24 @@ async def lifespan(app):
         misfire_grace_time=300  # Allow 5min grace period
     )
     
+    # Job 2: Check and renew subscriptions daily at 01:00 UTC
+    # This checks for subscriptions expiring within 7 days and initiates renewal
+    scheduler.add_job(
+        auto_renewal_job,
+        trigger=CronTrigger(hour=1, minute=0, timezone="UTC"),
+        id="auto_renewal_subscriptions",
+        name="Check and renew expiring subscriptions",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=300
+    )
+    
     scheduler.start()
     app.state.scheduler = scheduler
     
     logger.info("✓ Background scheduler initialized")
-    logger.info("✓ Jobs registered: generate_monthly_payments (daily at 00:05 UTC)")
+    logger.info("✓ Jobs registered: generate_monthly_payments (daily at 00:05 UTC), auto_renewal_subscriptions (daily at 01:00 UTC)")
     
     yield
     
@@ -203,6 +258,8 @@ app.include_router(bed.router, prefix=API_PREFIX)
 app.include_router(staff.router, prefix=API_PREFIX)
 app.include_router(payment.router, prefix=API_PREFIX)
 app.include_router(subscription.router, prefix=API_PREFIX)
+app.include_router(coupon.router, prefix=API_PREFIX)
+app.include_router(plan.router, prefix=API_PREFIX)
 app.include_router(dashboard.router, prefix=API_PREFIX)
 
 

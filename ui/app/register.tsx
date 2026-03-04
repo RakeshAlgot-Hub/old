@@ -221,7 +221,7 @@ export default function RegisterScreen() {
                 style={[
                   styles.input,
                   {
-                    backgroundColor: colors.white,
+                    backgroundColor: colors.background.secondary,
                     color: colors.text.primary,
                     borderColor: colors.border.medium,
                   },
@@ -240,7 +240,7 @@ export default function RegisterScreen() {
                 style={[
                   styles.input,
                   {
-                    backgroundColor: colors.white,
+                    backgroundColor: colors.background.secondary,
                     color: colors.text.primary,
                     borderColor: emailVerified ? colors.success[500] : colors.border.medium,
                   },
@@ -289,7 +289,7 @@ export default function RegisterScreen() {
                       style={[
                         styles.otpInput,
                         {
-                          backgroundColor: colors.white,
+                          backgroundColor: colors.background.secondary,
                           color: colors.text.primary,
                           borderColor: colors.border.medium,
                         },
@@ -343,7 +343,7 @@ export default function RegisterScreen() {
                     style={[
                       styles.input,
                       {
-                        backgroundColor: colors.white,
+                        backgroundColor: colors.background.secondary,
                         color: colors.text.primary,
                         borderColor: colors.border.medium,
                       },
@@ -364,7 +364,7 @@ export default function RegisterScreen() {
                       style={[
                         styles.passwordInput,
                         {
-                          backgroundColor: colors.white,
+                          backgroundColor: colors.background.secondary,
                           color: colors.text.primary,
                           borderColor: colors.border.medium,
                         },
@@ -399,7 +399,7 @@ export default function RegisterScreen() {
                       style={[
                         styles.passwordInput,
                         {
-                          backgroundColor: colors.white,
+                          backgroundColor: colors.background.secondary,
                           color: colors.text.primary,
                           borderColor: colors.border.medium,
                         },

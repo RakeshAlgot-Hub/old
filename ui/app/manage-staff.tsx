@@ -27,6 +27,7 @@ import { ChevronLeft, Plus, Trash2, Edit2, X, Users, AlertCircle } from 'lucide-
 import { useRouter } from 'expo-router';
 import Card from '@/components/Card';
 import EmptyState from '@/components/EmptyState';
+import UpgradeModal from '@/components/UpgradeModal';
 
 const STAFF_ROLES = [
   { label: 'Cooker', value: 'cooker' },
@@ -62,6 +63,7 @@ export default function ManageStaffScreen() {
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -231,7 +233,11 @@ export default function ManageStaffScreen() {
       resetForm();
     } catch (error: any) {
       const message = error?.message || 'Failed to save staff';
-      if (message.includes('limit') || message.includes('Upgrade')) {
+      if (error?.code === 'SUBSCRIPTION_LIMIT_EXCEEDED' || error?.details?.status === 402) {
+        setShowUpgradeModal(true);
+        setShowAddModal(false);
+        setFormError(message);
+      } else if (message.includes('limit') || message.includes('Upgrade')) {
         setFormError(message);
       } else {
         setFormError(message);
@@ -296,10 +302,10 @@ export default function ManageStaffScreen() {
             {
               backgroundColor:
                 item.status === 'active'
-                  ? colors.success[50]
+                  ? colors.background.tertiary
                   : item.status === 'on_leave'
-                    ? colors.warning[50]
-                    : colors.danger[50],
+                    ? colors.background.tertiary
+                    : colors.background.tertiary,
             },
           ]}>
           <Text
@@ -308,10 +314,10 @@ export default function ManageStaffScreen() {
               {
                 color:
                   item.status === 'active'
-                    ? colors.success[600]
+                    ? colors.success[500]
                     : item.status === 'on_leave'
-                      ? colors.warning[600]
-                      : colors.danger[600],
+                      ? colors.warning[500]
+                      : colors.danger[500],
               },
             ]}>
             {STAFF_STATUS.find((s) => s.value === item.status)?.label || item.status}
@@ -377,7 +383,7 @@ export default function ManageStaffScreen() {
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background.primary }]}
       edges={['top', 'bottom']}>
-      <View style={[styles.header, { backgroundColor: colors.white, borderBottomColor: colors.border.light }]}>
+      <View style={[styles.header, { backgroundColor: colors.background.secondary, borderBottomColor: colors.border.light }]}>
         <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7}>
           <ChevronLeft size={24} color={colors.text.primary} />
         </TouchableOpacity>
@@ -393,7 +399,7 @@ export default function ManageStaffScreen() {
 
       {/* Quota Banner */}
       {subscription && (
-        <View style={[styles.quotaContainer, { backgroundColor: colors.white, borderBottomColor: colors.border.light }]}>
+        <View style={[styles.quotaContainer, { backgroundColor: colors.background.secondary, borderBottomColor: colors.border.light }]}>
           <View style={styles.quotaRow}>
             <View style={styles.quotaInfo}>
               <Text style={[styles.quotaLabel, { color: colors.text.secondary }]}>Staff Members</Text>
@@ -415,16 +421,16 @@ export default function ManageStaffScreen() {
             {subscription.plan !== 'premium' && (
               <TouchableOpacity
                 onPress={() => router.push('/subscription')}
-                style={[styles.upgradeButton, { backgroundColor: colors.primary[50] }]}
+                style={[styles.upgradeButton, { backgroundColor: colors.background.tertiary }]}
                 activeOpacity={0.7}>
-                <Text style={[styles.upgradeText, { color: colors.primary[600] }]}>Upgrade</Text>
+                <Text style={[styles.upgradeText, { color: colors.primary[500] }]}>Upgrade</Text>
               </TouchableOpacity>
             )}
           </View>
           {hasReachedStaffLimit && (
-            <View style={[styles.limitWarning, { backgroundColor: colors.danger[50], borderLeftColor: colors.danger[500] }]}>
-              <AlertCircle size={16} color={colors.danger[600]} />
-              <Text style={[styles.limitWarningText, { color: colors.danger[700] }]}>
+            <View style={[styles.limitWarning, { backgroundColor: colors.background.tertiary, borderLeftColor: colors.danger[500] }]}>
+              <AlertCircle size={16} color={colors.danger[500]} />
+              <Text style={[styles.limitWarningText, { color: colors.danger[500] }]}>
                 You've reached your staff limit. Upgrade to add more.
               </Text>
             </View>
@@ -433,7 +439,7 @@ export default function ManageStaffScreen() {
       )}
 
       {/* Filters */}
-      <View style={[styles.filterContainer, { backgroundColor: colors.white }]}>
+      <View style={[styles.filterContainer, { backgroundColor: colors.background.secondary }]}>
         <TextInput
           style={[
             styles.searchInput,
@@ -527,7 +533,7 @@ export default function ManageStaffScreen() {
       {/* Add/Edit Modal */}
       <Modal visible={showAddModal} animationType="slide" transparent={false}>
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]}>
-          <View style={[styles.header, { backgroundColor: colors.white, borderBottomColor: colors.border.light }]}>
+          <View style={[styles.header, { backgroundColor: colors.background.secondary, borderBottomColor: colors.border.light }]}>
             <TouchableOpacity
               onPress={() => {
                 setShowAddModal(false);
@@ -549,8 +555,8 @@ export default function ManageStaffScreen() {
               contentContainerStyle={styles.formScroll}
               keyboardShouldPersistTaps="handled">
               {formError && (
-                <View style={[styles.errorBox, { backgroundColor: colors.danger[50], borderColor: colors.danger[200] }]}>
-                  <Text style={[styles.errorText, { color: colors.danger[700] }]}>{formError}</Text>
+                <View style={[styles.errorBox, { backgroundColor: colors.background.tertiary, borderColor: colors.danger[200] }]}>
+                  <Text style={[styles.errorText, { color: colors.danger[500] }]}>{formError}</Text>
                 </View>
               )}
 
@@ -772,7 +778,7 @@ export default function ManageStaffScreen() {
               </View>
 
               {!isOnline && (
-                <View style={[styles.offlineWarning, { backgroundColor: colors.warning[50], borderColor: colors.warning[200] }]}>
+                <View style={[styles.offlineWarning, { backgroundColor: colors.background.tertiary, borderColor: colors.warning[200] }]}>
                   <Text style={[styles.offlineWarningText, { color: colors.warning[900] }]}>
                     📡 Offline - You cannot add or update staff without internet connection
                   </Text>
@@ -797,6 +803,15 @@ export default function ManageStaffScreen() {
           </KeyboardAvoidingView>
         </SafeAreaView>
       </Modal>
+
+      <UpgradeModal
+        visible={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        onSelectPlan={() => {
+          setShowUpgradeModal(false);
+          loadStaff();
+        }}
+      />
     </SafeAreaView>
   );
 }

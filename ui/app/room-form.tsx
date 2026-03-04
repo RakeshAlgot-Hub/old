@@ -20,6 +20,7 @@ import { useProperty } from '@/context/PropertyContext';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { roomService } from '@/services/apiClient';
 import { clearScreenCache } from '@/services/screenCache';
+import UpgradeModal from '@/components/UpgradeModal';
 
 const FLOOR_OPTIONS = [
   'Ground Floor',
@@ -45,6 +46,7 @@ export default function RoomFormScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showFloorPicker, setShowFloorPicker] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const handleSubmit = async () => {
     if (!roomNumber || !floor || !price || !numberOfBeds) {
@@ -94,7 +96,11 @@ export default function RoomFormScreen() {
 
       router.back();
     } catch (err: any) {
-      setError(err?.message || 'Failed to create room');
+      if (err?.code === 'SUBSCRIPTION_LIMIT_EXCEEDED' || err?.details?.status === 402) {
+        setShowUpgradeModal(true);
+      } else {
+        setError(err?.message || 'Failed to create room');
+      }
     } finally {
       setLoading(false);
     }
@@ -345,6 +351,14 @@ export default function RoomFormScreen() {
           </View>
         </View>
       </Modal>
+
+      <UpgradeModal
+        visible={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        onSelectPlan={() => {
+          setShowUpgradeModal(false);
+        }}
+      />
     </SafeAreaView>
   );
 }

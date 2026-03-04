@@ -26,6 +26,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useProperty } from '@/context/PropertyContext';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { propertyService } from '@/services/apiClient';
+import { clearScreenCache, cacheKeys } from '@/services/screenCache';
 
 export default function ManagePropertiesScreen() {
   const { colors } = useTheme();
@@ -85,9 +86,18 @@ export default function ManagePropertiesScreen() {
 
     try {
       setDeleting(true);
-      await propertyService.deleteProperty(selectedProperty.id);
-      // Refresh the properties list
+      const deletedPropertyId = selectedProperty.id;
+      
+      // Call delete API
+      await propertyService.deleteProperty(deletedPropertyId);
+      
+      // Clear ALL caches to force fresh fetch
+      clearScreenCache();
+      
+      // Refresh the properties list from API (bypass cache)
       await refreshProperties();
+      
+      // Close modal and reset state
       setShowDeleteConfirm(false);
       setSelectedProperty(null);
     } catch (error) {
@@ -273,15 +283,15 @@ export default function ManagePropertiesScreen() {
                         styles.actionButton,
                         styles.deleteButton,
                         {
-                          backgroundColor: colors.danger[50],
+                          backgroundColor: colors.background.tertiary,
                           opacity: !isOnline ? 0.5 : 1,
                         },
                       ]}
                       onPress={() => handleDeleteProperty(property)}
                       activeOpacity={0.6}
                       disabled={!isOnline}>
-                      <Trash2 size={18} color={colors.danger[600]} strokeWidth={2} />
-                      <Text style={[styles.actionButtonText, { color: colors.danger[600] }]}>
+                      <Trash2 size={18} color={colors.danger[500]} strokeWidth={2} />
+                      <Text style={[styles.actionButtonText, { color: colors.danger[500] }]}>
                         Delete
                       </Text>
                     </TouchableOpacity>
@@ -307,7 +317,7 @@ export default function ManagePropertiesScreen() {
 
       <Modal visible={showDeleteConfirm} transparent animationType="fade">
         <View style={[styles.overlay, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
-          <View style={[styles.deleteModal, { backgroundColor: colors.white }]}>
+          <View style={[styles.deleteModal, { backgroundColor: colors.background.secondary }]}>
             <TouchableOpacity
               style={styles.closeButton}
               onPress={() => {
@@ -318,7 +328,7 @@ export default function ManagePropertiesScreen() {
               <X size={24} color={colors.text.primary} />
             </TouchableOpacity>
 
-            <View style={[styles.deleteIconContainer, { backgroundColor: colors.danger[50] }]}>
+            <View style={[styles.deleteIconContainer, { backgroundColor: colors.background.tertiary }]}>
               <AlertTriangle size={48} color={colors.danger[500]} />
             </View>
 
@@ -333,12 +343,12 @@ export default function ManagePropertiesScreen() {
             <Card
               style={{
                 ...styles.deleteWarningCard,
-                backgroundColor: colors.danger[50],
+                backgroundColor: colors.background.tertiary,
               } as any}
             >
               <View style={styles.warningHeader}>
                 <AlertTriangle size={16} color={colors.danger[500]} />
-                <Text style={[styles.warningTitle, { color: colors.danger[700] }]}>
+                <Text style={[styles.warningTitle, { color: colors.danger[500] }]}>
                   Data that will be deleted:
                 </Text>
               </View>
@@ -421,7 +431,7 @@ function WarningItem({ text, colors }: WarningItemProps) {
       <View
         style={[styles.warningDot, { backgroundColor: colors.danger[500] }]}
       />
-      <Text style={[styles.warningText, { color: colors.danger[700] }]}>
+      <Text style={[styles.warningText, { color: colors.danger[500] }]}>
         {text}
       </Text>
     </View>

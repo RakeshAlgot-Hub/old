@@ -36,6 +36,7 @@ import {
   DashboardStats,
   QuotaWarningsResponse,
   ArchivedResourcesResponse,
+  PlanMetadata,
 } from './apiTypes';
 import { encryptedTokenStorage } from './encryptedTokenStorage';
 import { dataCache } from './dataCache';
@@ -535,21 +536,49 @@ export const subscriptionService = {
   },
 
   async getLimits(
-    plan: 'free' | 'pro' | 'premium'
+    plan: string
   ): Promise<ApiResponse<PlanLimits>> {
     return await request<PlanLimits>('GET', `/subscription/limits/${plan}`, undefined, true) as ApiResponse<PlanLimits>;
   },
 
+  async getPlans(): Promise<ApiResponse<{ plans: PlanMetadata[] }>> {
+    const response = await request<any>('GET', '/subscription/plans', undefined, true) as ApiResponse<any>;
+    const rawData = response.data;
+    const plansArray = Array.isArray(rawData) ? rawData : (rawData?.plans || []);
+
+    const normalizedPlans: PlanMetadata[] = plansArray.map((plan: any) => ({
+      ...plan,
+      periods: (plan?.periods || []).map((period: any) => ({
+        ...period,
+        period: Number(period.period),
+      })),
+    }));
+
+    return {
+      ...response,
+      data: {
+        plans: normalizedPlans,
+      },
+    } as ApiResponse<{ plans: PlanMetadata[] }>;
+  },
+
   async updateSubscription(
-    plan: 'free' | 'pro' | 'premium'
+    plan: string,
+    period: number = 1
   ): Promise<ApiResponse<Subscription>> {
-    return await request<Subscription>('POST', '/subscription/upgrade', { plan }, true) as ApiResponse<Subscription>;
+    return await request<Subscription>('POST', '/subscription/upgrade', { plan, period }, true) as ApiResponse<Subscription>;
   },
 
   async createCheckoutSession(
-    plan: 'free' | 'pro' | 'premium'
+    plan: string,
+    period: number = 1,
+    couponCode?: string
   ): Promise<ApiResponse<RazorpayCheckoutSession>> {
-    return await request<RazorpayCheckoutSession>('POST', '/subscription/create-checkout-session', { plan }, true) as ApiResponse<RazorpayCheckoutSession>;
+    const payload: any = { plan, period };
+    if (couponCode) {
+      payload.coupon_code = couponCode;
+    }
+    return await request<RazorpayCheckoutSession>('POST', '/subscription/create-checkout-session', payload, true) as ApiResponse<RazorpayCheckoutSession>;
   },
 
   async verifyPayment(
@@ -570,8 +599,48 @@ export const subscriptionService = {
     return await request<{ success: boolean; restored_resources: any }>('POST', '/subscription/recover-archived-resources', {}, true) as ApiResponse<{ success: boolean; restored_resources: any }>;
   },
 
+  async enableAutoRenewal(): Promise<ApiResponse<{ success: boolean; message: string; autoRenewal: boolean }>> {
+    return await request<{ success: boolean; message: string; autoRenewal: boolean }>('POST', '/subscription/auto-renewal/enable', {}, true) as ApiResponse<{ success: boolean; message: string; autoRenewal: boolean }>;
+  },
+
+  async disableAutoRenewal(): Promise<ApiResponse<{ success: boolean; message: string; autoRenewal: boolean }>> {
+    return await request<{ success: boolean; message: string; autoRenewal: boolean }>('POST', '/subscription/auto-renewal/disable', {}, true) as ApiResponse<{ success: boolean; message: string; autoRenewal: boolean }>;
+  },
+
   async cancelSubscription(): Promise<ApiResponse<Subscription>> {
     return await request<Subscription>('POST', '/subscription/cancel', {}, true) as ApiResponse<Subscription>;
+  },
+};
+
+export const couponService = {
+  async validateCoupon(
+    code: string,
+    amount?: number,
+    plan?: string
+  ): Promise<ApiResponse<{ isValid: boolean; message: string; originalAmount?: number; discountAmount?: number; finalAmount?: number }>> {
+    const params = new URLSearchParams();
+    if (amount !== undefined) params.append('amount', amount.toString());
+    if (plan) params.append('plan', plan);
+    
+    return await request<{ isValid: boolean; message: string; originalAmount?: number; discountAmount?: number; finalAmount?: number }>(
+      'GET',
+      `/coupons/validate/${encodeURIComponent(code)}?${params.toString()}`,
+      undefined,
+      false
+    ) as ApiResponse<{ isValid: boolean; message: string; originalAmount?: number; discountAmount?: number; finalAmount?: number }>;
+  },
+
+  async applyCoupon(
+    code: string,
+    amount: number,
+    plan?: string
+  ): Promise<ApiResponse<{ isValid: boolean; message: string; originalAmount: number; discountAmount: number; finalAmount: number }>> {
+    return await request<{ isValid: boolean; message: string; originalAmount: number; discountAmount: number; finalAmount: number }>(
+      'POST',
+      '/coupons/apply',
+      { code, amount, plan },
+      false
+    ) as ApiResponse<{ isValid: boolean; message: string; originalAmount: number; discountAmount: number; finalAmount: number }>;
   },
 };
 

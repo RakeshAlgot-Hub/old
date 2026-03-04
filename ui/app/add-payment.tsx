@@ -137,7 +137,11 @@ export default function AddPaymentScreen() {
       setLoading(false);
       router.replace('/tenants'); // Navigate to tenant list after success
     } catch (err: any) {
-      setError(err?.message || 'Failed to create tenant');
+      if (err?.code === 'SUBSCRIPTION_LIMIT_EXCEEDED' || err?.details?.status === 402) {
+        setShowUpgradeModal(true);
+      } else {
+        setError(err?.message || 'Failed to create tenant');
+      }
     } finally {
       setLoading(false);
     }
@@ -438,6 +442,14 @@ export default function AddPaymentScreen() {
             </View>
           </View>
         </Modal>
+
+      <UpgradeModal
+        visible={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        onSelectPlan={() => {
+          setShowUpgradeModal(false);
+        }}
+      />
     </SafeAreaView>
   );
 }

@@ -7,7 +7,6 @@ router = APIRouter(prefix="/staff", tags=["staff"])
 staff_service = StaffService()
 
 
-@router.get("/")
 @router.get("")
 async def get_staff(
     request: Request,
@@ -64,7 +63,6 @@ async def get_staff_detail(request: Request, staff_id: str):
     return {"data": staff.model_dump()}
 
 
-@router.post("/")
 @router.post("")
 async def create_staff(request: Request, staff: StaffCreate):
     """Create new staff member"""

@@ -53,7 +53,7 @@ class SubscriptionEnforcement:
                 )
 
             # Get plan limits
-            limits = SubscriptionService.get_plan_limits(sub.plan)
+            limits = await SubscriptionService.get_plan_limits(sub.plan)
 
             # Count existing properties using string owner_id
             current = await db["properties"].count_documents(build_owner_query(owner_id))
@@ -116,7 +116,7 @@ class SubscriptionEnforcement:
                 )
 
             # Get plan limits
-            limits = SubscriptionService.get_plan_limits(sub.plan)
+            limits = await SubscriptionService.get_plan_limits(sub.plan)
 
             # Count existing tenants in THIS property only (not across all properties)
             current = await db["tenants"].count_documents(
@@ -181,7 +181,7 @@ class SubscriptionEnforcement:
                 )
 
             # Get plan limits
-            limits = SubscriptionService.get_plan_limits(sub.plan)
+            limits = await SubscriptionService.get_plan_limits(sub.plan)
 
             # Count existing rooms in THIS property
             current = await db["rooms"].count_documents(
@@ -247,7 +247,7 @@ class SubscriptionEnforcement:
                 )
 
             # Get plan limits
-            limits = SubscriptionService.get_plan_limits(sub.plan)
+            limits = await SubscriptionService.get_plan_limits(sub.plan)
 
             # Count existing staff in THIS property (not archived)
             current = await db["staff"].count_documents(
@@ -285,7 +285,7 @@ class SubscriptionEnforcement:
         """
         try:
             sub = await SubscriptionService.get_subscription(owner_id)
-            limits = SubscriptionService.get_plan_limits(sub.plan)
+            limits = await SubscriptionService.get_plan_limits(sub.plan)
 
             # Get actual usage
             owned_properties = await db["properties"].find(
@@ -334,35 +334,6 @@ class SubscriptionEnforcement:
         except Exception as e:
             logger.error(f"Error getting usage warnings: {str(e)}")
             return None
-        properties_percent = (properties / limits["properties"]) * 100 if limits["properties"] > 0 else 0
-        if properties_percent >= 80:
-            warnings.append({
-                "type": "properties",
-                "current": properties,
-                "limit": limits["properties"],
-                "percent": int(properties_percent),
-                "message": f"You're using {properties}/{limits['properties']} properties ({int(properties_percent)}%)"
-            })
-
-        # Check tenants usage (warn at 80%)
-        tenants_percent = (tenants / limits["tenants"]) * 100 if limits["tenants"] > 0 else 0
-        if tenants_percent >= 80:
-            warnings.append({
-                "type": "tenants",
-                "current": tenants,
-                "limit": limits["tenants"],
-                "percent": int(tenants_percent),
-                "message": f"You're using {tenants}/{limits['tenants']} tenants ({int(tenants_percent)}%)"
-            })
-
-        if warnings:
-            return {
-                "plan": sub.plan,
-                "warnings": warnings,
-                "upgrade_url": "/subscription/upgrade"
-            }
-
-        return None
 
     @staticmethod
     async def ensure_property_not_archived(property_id: str) -> None:

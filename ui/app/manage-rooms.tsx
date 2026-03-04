@@ -8,9 +8,9 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
-import ScreenContainer from '@/components/ScreenContainer';
 import Card from '@/components/Card';
 import ArchiveWarningModal from '@/components/ArchiveWarningModal';
 import FAB from '@/components/FAB';
@@ -122,7 +122,9 @@ export default function ManageRoomsScreen() {
 
   if (propertyLoading || loading) {
     return (
-      <ScreenContainer edges={['top']}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background.primary }]}
+        edges={['top', 'bottom']}>
         <View style={[styles.header, { backgroundColor: colors.background.secondary, borderBottomColor: colors.border.light }]}>
           <TouchableOpacity
             style={styles.backButton}
@@ -138,13 +140,15 @@ export default function ManageRoomsScreen() {
           showsVerticalScrollIndicator={false}>
           <Skeleton height={150} count={3} />
         </ScrollView>
-      </ScreenContainer>
+      </SafeAreaView>
     );
   }
 
   if (!selectedProperty) {
     return (
-      <ScreenContainer edges={['top']}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background.primary }]}
+        edges={['top', 'bottom']}>
         <View style={[styles.header, { backgroundColor: colors.background.secondary, borderBottomColor: colors.border.light }]}>
           <TouchableOpacity
             style={styles.backButton}
@@ -164,12 +168,14 @@ export default function ManageRoomsScreen() {
             subtitle="Please select a property first to manage rooms"
           />
         </ScrollView>
-      </ScreenContainer>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ScreenContainer edges={['top']}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background.primary }]}
+      edges={['top', 'bottom']}>
       <View style={[styles.header, { backgroundColor: colors.background.secondary, borderBottomColor: colors.border.light }]}>
         <TouchableOpacity
           style={styles.backButton}
@@ -316,11 +322,14 @@ export default function ManageRoomsScreen() {
           setSelectedRoom(null);
         }}
       />
-    </ScreenContainer>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
   scrollContent: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xxxl,

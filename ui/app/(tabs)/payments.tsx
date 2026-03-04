@@ -16,7 +16,6 @@ import Card from '@/components/Card';
 import EmptyState from '@/components/EmptyState';
 import Skeleton from '@/components/Skeleton';
 import ApiErrorCard from '@/components/ApiErrorCard';
-import UpgradeModal from '@/components/UpgradeModal';
 import FAB from '@/components/FAB';
 import {
   Filter,
@@ -35,6 +34,7 @@ import { useProperty } from '@/context/PropertyContext';
 import { paymentService } from '@/services/apiClient';
 import type { Payment, PaginatedResponse } from '@/services/apiTypes';
 import { cacheKeys, getScreenCache, setScreenCache, clearScreenCache } from '@/services/screenCache';
+import UpgradeModal from '@/components/UpgradeModal';
 
 const PAYMENTS_CACHE_STALE_MS = 30 * 1000;
 
@@ -135,7 +135,7 @@ export default function PaymentsScreen() {
       setScreenCache(cacheKey, response);
     } catch (err: any) {
       console.error('Error fetching payments:', err);
-      if (err?.code === 'upgrade_required') {
+      if (err?.code === 'SUBSCRIPTION_LIMIT_EXCEEDED' || err?.details?.status === 402) {
         setShowUpgradeModal(true);
       } else {
         setError(err?.message || 'Failed to load payments');
@@ -509,6 +509,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: spacing.md,
+    minHeight: 40,
   },
   statusIconContainer: {
     marginRight: spacing.sm,
@@ -532,8 +533,10 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   amount: {
-    fontSize: typography.fontSize.md,
+    fontSize: typography.fontSize.lg,
     fontWeight: typography.fontWeight.bold,
+    fontFamily: 'System',
+    letterSpacing: -0.3,
     marginBottom: 2,
   },
   divider: {
@@ -546,6 +549,7 @@ const styles = StyleSheet.create({
   dateRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    height: 20,
   },
   dateLabel: {
     fontSize: typography.fontSize.xs,
@@ -559,6 +563,7 @@ const styles = StyleSheet.create({
   methodRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    height: 20,
   },
   methodLabel: {
     fontSize: typography.fontSize.xs,

@@ -37,8 +37,20 @@ class UserContextMiddleware(BaseHTTPMiddleware):
             "/api/v1/subscription/limits/free",  # Plan limits are public
             "/api/v1/subscription/limits/pro",
             "/api/v1/subscription/limits/premium",
+            "/api/v1/subscription/plans",  # Get all available plans
         })
-        if request.url.path in public_paths:
+        
+        # Public path prefixes (for paths with dynamic segments)
+        public_prefixes = [
+            "/api/v1/coupons/validate/",  # Coupon validation is public
+        ]
+        
+        # Check exact path match or prefix match
+        is_public = request.url.path in public_paths or any(
+            request.url.path.startswith(prefix) for prefix in public_prefixes
+        )
+        
+        if is_public:
             # Allow public access, skip authentication
             response = await call_next(request)
             return response

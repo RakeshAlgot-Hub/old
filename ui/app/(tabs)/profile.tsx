@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   Switch,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import ScreenContainer from '@/components/ScreenContainer';
 import Card from '@/components/Card';
 import {
@@ -36,7 +36,13 @@ export default function ProfileScreen() {
     await logout();
   };
 
-  const settingsOptions = [
+  const settingsOptions: Array<{
+    icon: any;
+    title: string;
+    description: string;
+    color: string;
+    route?: Href;
+  }> = [
     {
       icon: Building2,
       title: 'Manage Properties',
@@ -193,7 +199,7 @@ export default function ProfileScreen() {
         </View>
 
         <TouchableOpacity
-          style={[styles.logoutButton, { backgroundColor: colors.white, borderColor: colors.danger[100] }]}
+          style={[styles.logoutButton, { backgroundColor: colors.background.secondary, borderColor: colors.danger[100] }]}
           onPress={handleLogout}
           activeOpacity={0.7}>
           <LogOut size={20} color={colors.danger[500]} />

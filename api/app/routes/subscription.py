@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
-from typing import Literal
+from fastapi import APIRouter, Depends, HTTPException, Body
 from app.utils.helpers import get_current_user
 from app.services.subscription_service import SubscriptionService
+from app.services.plan_service import PlanService
 from app.services.subscription_enforcement import SubscriptionEnforcement
 from app.services.subscription_lifecycle import SubscriptionLifecycle
 from app.services.razorpay_service import RazorpayService
+from app.services.coupon_service import CouponService
 
 router = APIRouter(prefix="/subscription", tags=["subscription"])
 
@@ -18,6 +19,19 @@ async def get_subscription(user_id: str = Depends(get_current_user)):
         raise HTTPException(
             status_code=500,
             detail="Error retrieving subscription. Please try again."
+        )
+
+
+@router.get("/plans")
+async def get_all_plans():
+    """Get all available subscription plans with their pricing tiers"""
+    try:
+        plans = await SubscriptionService.get_all_plans()
+        return {"data": plans}
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail="Error retrieving subscription plans. Please try again."
         )
 
 
@@ -49,17 +63,15 @@ async def get_quota_warnings(user_id: str = Depends(get_current_user)):
 
 
 @router.get("/limits/{plan}")
-async def get_limits(plan: Literal['free', 'pro', 'premium']):
+async def get_limits(plan: str):
     try:
-        limits = SubscriptionService.get_plan_limits(plan)
-    except KeyError:
-        raise HTTPException(status_code=404, detail="Plan not found")
+        limits = await SubscriptionService.get_plan_limits(plan)
+        if not limits:
+            raise HTTPException(status_code=404, detail="Plan not found")
+        return {"data": limits}
     except Exception as e:
         raise HTTPException(status_code=500, detail="Error retrieving plan limits.")
-    return {"data": limits}
 
-
-from fastapi import Body
 
 @router.post("/upgrade")
 async def upgrade_subscription(
@@ -68,15 +80,22 @@ async def upgrade_subscription(
 ):
     try:
         plan = payload.get("plan")
-        if plan not in ["free", "pro", "premium"]:
-            raise HTTPException(status_code=400, detail="Invalid plan")
+        period = payload.get("period", 1)
+        
+        if not plan:
+            raise HTTPException(status_code=400, detail="Plan is required")
+        
+        # Validate period for the plan
+        available_periods = await PlanService.get_available_periods(plan)
+        if period not in available_periods:
+            raise HTTPException(status_code=400, detail=f"Period {period} not available for {plan} plan. Available: {available_periods}")
         
         # Get current subscription to track change
         current_sub = await SubscriptionService.get_subscription(user_id)
         old_plan = current_sub.plan
         
         # Update subscription
-        sub = await SubscriptionService.update_subscription(user_id, plan)
+        sub = await SubscriptionService.update_subscription(user_id, plan, period)
         
         # If upgrading, restore archived resources
         if plan != old_plan and old_plan != 'free':
@@ -95,10 +114,6 @@ async def upgrade_subscription(
             detail="Error updating subscription. Please try again."
         )
 
-
-# Razorpay: Create Checkout Session
-from fastapi import Body
-
 @router.post("/create-checkout-session")
 async def create_checkout_session(
     payload: dict = Body(...),
@@ -106,22 +121,54 @@ async def create_checkout_session(
 ):
     try:
         plan = payload.get("plan")
-        if plan not in ["free", "pro", "premium"]:
-            raise HTTPException(status_code=400, detail="Invalid plan")
+        period = payload.get("period", 1)
+        coupon_code = payload.get("coupon_code", "").strip()
+        
+        if not plan:
+            raise HTTPException(status_code=400, detail="Plan is required")
         if plan == 'free':
             raise HTTPException(status_code=400, detail="Free plan does not require payment.")
-        plan_limits = SubscriptionService.get_plan_limits(plan)
-        amount = plan_limits['price'] * 100
+        
+        # Validate and get price for this plan and period
+        available_periods = await PlanService.get_available_periods(plan)
+        if period not in available_periods:
+            raise HTTPException(status_code=400, detail=f"Period {period} not available for {plan} plan")
+        
+        price = await PlanService.get_plan_price(plan, period)
+        if price <= 0:
+            raise HTTPException(status_code=400, detail="Invalid price for this plan and period")
+        
+        amount = price  # Already in paise
+        discount_amount = 0
+        final_amount = amount
+        
+        # Apply coupon if provided
+        if coupon_code:
+            coupon_response = await CouponService.apply_coupon(coupon_code, amount, plan)
+            if not coupon_response.isValid:
+                raise HTTPException(status_code=400, detail=f"Invalid coupon: {coupon_response.message}")
+            
+            final_amount = coupon_response.finalAmount
+            discount_amount = coupon_response.discountAmount
+        
         currency = 'INR'
+        
         # Ensure receipt is <= 40 chars for Razorpay
-        base_receipt = f"sub_{plan}"
+        base_receipt = f"sub_{plan}_{period}m"
         user_part = user_id[:40 - len(base_receipt) - 1]  # leave room for underscore
         receipt = f"{base_receipt}_{user_part}"
-        order_doc = await RazorpayService.create_order(user_id, plan, amount, currency, receipt)
+        
+        order_doc = await RazorpayService.create_order(
+            user_id, plan, period, final_amount, currency, receipt, 
+            coupon_code=coupon_code if coupon_code else None
+        )
         return {
             "data": {
                 "razorpayOrderId": order_doc.order_id,
-                "amount": order_doc.amount,
+                "amount": final_amount,
+                "originalAmount": amount,
+                "discountAmount": discount_amount,
+                "couponCode": coupon_code if coupon_code else None,
                 "currency": order_doc.currency,
                 "keyId": RazorpayService.client.auth[0]
             }
@@ -145,12 +192,29 @@ async def verify_payment(payload: dict, user_id: str = Depends(get_current_user)
         if not (payment_id and order_id and signature):
             raise HTTPException(status_code=400, detail="Missing payment verification fields")
 
-        success, plan_or_error = await RazorpayService.verify_payment(order_id, payment_id, signature)
+        success, plan_data, coupon_code = await RazorpayService.verify_payment(order_id, payment_id, signature)
         if not success:
-            return {"data": {"success": False, "error": plan_or_error}}
+            return {"data": {"success": False, "error": plan_data}}
 
-        await SubscriptionService.update_subscription(user_id, plan_or_error)
-        return {"data": {"success": True, "subscription": plan_or_error}}
+        # plan_data now contains {"plan": "pro", "period": 3}
+        plan = plan_data["plan"]
+        period = plan_data.get("period", 1)
+        
+        await SubscriptionService.update_subscription(user_id, plan, period)
+        
+        # Apply coupon usage if coupon was used
+        if coupon_code:
+            await CouponService.increment_usage(coupon_code)
+        
+        return {
+            "data": {
+                "success": True, 
+                "subscription": plan, 
+                "period": period,
+                "couponApplied": coupon_code is not None,
+                "couponCode": coupon_code if coupon_code else None
+            }
+        }
     except HTTPException:
         raise
     except Exception as e:
@@ -320,42 +384,26 @@ async def get_all_subscriptions(user_id: str = Depends(get_current_user)):
 @router.post("/initialize")
 async def initialize_subscriptions(user_id: str = Depends(get_current_user)):
     """
-    Check if user has 3 subscriptions (free, pro, premium).
-    If not, create the missing ones with active status.
-    Useful for existing users who may not have all 3 subscriptions.
+    Initialize free subscription for user if not exists.
+    Creates a single subscription document that will be updated when plan changes.
     """
     try:
         from app.database.mongodb import db
         
-        # Check existing subscriptions
-        existing_subs = await db["subscriptions"].find(
-            {"ownerId": user_id}
-        ).to_list(length=None)
+        # Check if user has a subscription
+        existing_sub = await db["subscriptions"].find_one({"ownerId": user_id})
         
-        existing_plans = {sub["plan"] for sub in existing_subs}
-        
-        if len(existing_subs) == 3 and existing_plans == {"free", "pro", "premium"}:
-            # User already has all 3 subscriptions
-            # Ensure free is active, pro/premium are inactive
-            await db["subscriptions"].update_many(
-                {"ownerId": user_id, "plan": "free"},
-                {"$set": {"status": "active"}}
-            )
-            await db["subscriptions"].update_many(
-                {"ownerId": user_id, "plan": {"$in": ["pro", "premium"]}},
-                {"$set": {"status": "inactive"}}
-            )
-            
+        if existing_sub:
             return {
                 "data": {
                     "success": True,
-                    "message": "User already has all 3 subscriptions (free: active, pro/premium: inactive)",
+                    "message": "User already has an active subscription",
                     "subscriptions_created": 0,
-                    "existing_subscriptions": 3
+                    "plan": existing_sub.get("plan", "free")
                 }
             }
         
-        # Create missing subscriptions
+        # Create default free subscription
         result = await SubscriptionService.create_default_subscriptions(user_id)
         
         if result["success"]:
@@ -364,20 +412,92 @@ async def initialize_subscriptions(user_id: str = Depends(get_current_user)):
                     "success": True,
                     "message": result["message"],
                     "subscriptions_created": result["subscriptions_created"],
-                    "plans_created": result["plans"],
-                    "existing_subscriptions": len(existing_subs),
-                    "note": "Only free plan is active. Pro/Premium become active when user purchases."
+                    "plan": result.get("plan", "free")
                 }
             }
         else:
             raise HTTPException(
                 status_code=500,
-                detail=result.get("error", "Failed to create subscriptions")
+                detail=result.get("error", "Failed to create subscription")
             )
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail="Error initializing subscriptions. Please try again."
+            detail="Error initializing subscription. Please try again."
+        )
+
+
+@router.post("/auto-renewal/enable")
+async def enable_auto_renewal(user_id: str = Depends(get_current_user)):
+    """Enable automatic renewal for current subscription"""
+    try:
+        success = await SubscriptionService.enable_auto_renewal(user_id)
+        if success:
+            return {
+                "data": {
+                    "success": True,
+                    "message": "Auto-renewal enabled. Your subscription will renew automatically.",
+                    "autoRenewal": True
+                }
+            }
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail="No active subscription found"
+            )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail="Error enabling auto-renewal. Please try again."
+        )
+
+
+@router.post("/auto-renewal/disable")
+async def disable_auto_renewal(user_id: str = Depends(get_current_user)):
+    """Disable automatic renewal for current subscription"""
+    try:
+        success = await SubscriptionService.disable_auto_renewal(user_id)
+        if success:
+            return {
+                "data": {
+                    "success": True,
+                    "message": "Auto-renewal disabled. Your subscription will expire after current period.",
+                    "autoRenewal": False
+                }
+            }
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail="No active subscription found"
+            )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail="Error disabling auto-renewal. Please try again."
+        )
+
+
+@router.post("/cancel")
+async def cancel_subscription(user_id: str = Depends(get_current_user)):
+    """Cancel active subscription and downgrade to free plan"""
+    try:
+        result = await SubscriptionService.cancel_subscription(user_id)
+        return {
+            "data": {
+                "success": True,
+                "message": result.get("message", "Subscription cancelled successfully"),
+                "plan": result.get("plan", "free")
+            }
+        }
+    except ValueError as e:
+        raise HTTPException(
+            status_code=404,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail="Error cancelling subscription. Please try again."
         )

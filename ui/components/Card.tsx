@@ -5,7 +5,7 @@ import { useTheme } from '@/context/ThemeContext';
 
 interface CardProps {
   children: ReactNode;
-  style?: ViewStyle;
+  style?: ViewStyle | ViewStyle[];
 }
 
 export default function Card({ children, style }: CardProps) {

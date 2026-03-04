@@ -6,8 +6,8 @@ import {
   ScrollView,
   TouchableOpacity,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import ScreenContainer from '@/components/ScreenContainer';
 import StatusBadge from '@/components/StatusBadge';
 import Card from '@/components/Card';
 import { ChevronLeft, MapPin } from 'lucide-react-native';
@@ -140,7 +140,9 @@ export default function PropertyDetailScreen() {
   );
 
   return (
-    <ScreenContainer edges={['top']}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background.primary }]}
+      edges={['top', 'bottom']}>
       <View style={[styles.header, { backgroundColor: colors.background.secondary, borderBottomColor: colors.border.light }]}>
         <TouchableOpacity
           style={styles.backButton}
@@ -203,11 +205,14 @@ export default function PropertyDetailScreen() {
         {activeTab === 'rooms' && renderRooms()}
         {activeTab === 'tenants' && renderTenants()}
       </ScrollView>
-    </ScreenContainer>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
   scrollContent: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,

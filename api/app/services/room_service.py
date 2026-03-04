@@ -36,6 +36,9 @@ class RoomService:
             room_data["createdAt"] = now
         if not room_data.get("updatedAt"):
             room_data["updatedAt"] = now
+        # Ensure active is set to True (default for new rooms)
+        if "active" not in room_data:
+            room_data["active"] = True
         result = await self.collection.insert_one(room_data)
         room_data["id"] = str(result.inserted_id)
         # Auto-create beds for this room

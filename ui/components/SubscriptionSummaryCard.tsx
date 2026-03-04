@@ -90,7 +90,10 @@ export default function SubscriptionSummaryCard() {
   const formatPrice = (paise: number) => {
     if (paise === 0) return 'Free';
     const rupees = paise / 100;
-    return `₹${rupees.toFixed(rupees === Math.floor(rupees) ? 0 : 2)}`;
+    return `₹${rupees.toLocaleString('en-IN', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    })}`;
   };
 
   const formatLimit = (value: number) => {
@@ -281,9 +284,11 @@ const styles = StyleSheet.create({
     marginLeft: spacing.xs,
   },
   planMetaText: {
-    fontSize: typography.fontSize.md,
+    fontSize: typography.fontSize.lg,
     fontWeight: typography.fontWeight.bold,
     marginBottom: spacing.xs,
+    fontFamily: 'System',
+    letterSpacing: -0.3,
   },
   planPeriodText: {
     fontSize: typography.fontSize.xs,
@@ -308,6 +313,7 @@ const styles = StyleSheet.create({
   usageHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    height: 24,
   },
   usageLabel: {
     fontSize: typography.fontSize.sm,
