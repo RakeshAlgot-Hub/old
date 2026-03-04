@@ -26,7 +26,7 @@ export interface PropertyStats {
 export type BillingFrequency = 'monthly' | 'quarterly' | 'yearly';
 
 export interface BillingConfig {
-  status: 'paid' | 'due' | 'overdue';
+  status: 'paid' | 'due';
   billingCycle: 'monthly';
   anchorDay: number;
   method?: string;
@@ -62,7 +62,7 @@ export interface Payment {
   roomNumber?: string;  // Enriched field
   bed: string;
   amount: string;
-  status: 'paid' | 'due' | 'overdue';
+  status: 'paid' | 'due';
   dueDate?: string; // received from backend, optional
   paidDate?: string; // Date when payment was marked as paid
   date?: string;

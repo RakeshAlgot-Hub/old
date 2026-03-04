@@ -70,7 +70,7 @@ export default function PaymentsScreen() {
   
   // Filter state
   const [showFilterModal, setShowFilterModal] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'due' | 'overdue'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'due'>('all');
   const [methodFilter, setMethodFilter] = useState<'all' | 'Cash' | 'Online' | 'Bank Transfer' | 'UPI' | 'Cheque'>('all');
 
   // Get month/year display string
@@ -242,8 +242,6 @@ export default function PaymentsScreen() {
         return <CheckCircle size={20} color={colors.success[500]} />;
       case 'due':
         return <Clock size={20} color={colors.primary[500]} />;
-      case 'overdue':
-        return <AlertCircle size={20} color={colors.danger[500]} />;
     }
   };
 
@@ -395,7 +393,7 @@ export default function PaymentsScreen() {
               <View style={styles.filterSection}>
                 <Text style={[styles.filterSectionTitle, { color: colors.text.primary }]}>Payment Status</Text>
                 <View style={styles.filterOptions}>
-                  {['all', 'paid', 'due', 'overdue'].map((status) => (
+                  {['all', 'paid', 'due'].map((status) => (
                     <TouchableOpacity
                       key={status}
                       style={[

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, Literal, Union
 from datetime import datetime, date
 from enum import Enum
@@ -6,7 +6,6 @@ from enum import Enum
 class PaymentStatus(str, Enum):
     PAID = 'paid'
     DUE = 'due'
-    OVERDUE = 'overdue'
 
 class PaymentMethod(str, Enum):
     CASH = 'Cash'
@@ -20,10 +19,46 @@ class PaymentBase(BaseModel):
     propertyId: str
     bed: str
     amount: str
-    status: Literal['paid', 'due', 'overdue']
+    status: Literal['paid', 'due']
     dueDate: Optional[date] = None
     paidDate: Optional[date] = None
     method: Optional[str] = Field(default=PaymentMethod.CASH.value)
+
+    @field_validator('dueDate', 'paidDate', mode='before')
+    @classmethod
+    def normalize_date_fields(cls, value):
+        if value is None or value == '':
+            return None
+
+        if isinstance(value, date) and not isinstance(value, datetime):
+            return value
+
+        if isinstance(value, datetime):
+            return value.date()
+
+        if isinstance(value, str):
+            raw = value.strip()
+            if not raw:
+                return None
+
+            if 'T' in raw:
+                try:
+                    return datetime.fromisoformat(raw.replace('Z', '+00:00')).date()
+                except ValueError:
+                    try:
+                        return date.fromisoformat(raw[:10])
+                    except ValueError:
+                        return raw
+
+            try:
+                return date.fromisoformat(raw)
+            except ValueError:
+                try:
+                    return datetime.fromisoformat(raw.replace('Z', '+00:00')).date()
+                except ValueError:
+                    return raw
+
+        return value
 
 class PaymentCreate(PaymentBase):
     pass

@@ -65,13 +65,6 @@ export default function PropertyDetailScreen() {
       status: 'due' as const,
       phone: '+91 98765 43212',
     },
-    {
-      name: 'Emma Wilson',
-      bed: 'B-201',
-      rent: '₹5,500',
-      status: 'overdue' as const,
-      phone: '+91 98765 43213',
-    },
   ];
 
   const getBedCardStyle = (status: string) => {

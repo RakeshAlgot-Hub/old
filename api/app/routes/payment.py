@@ -91,7 +91,7 @@ async def list_payments(
     request: Request,
     propertyId: str = None,
     tenantId: str = None,
-    status: str = Query(default=None, pattern="^(paid|due|overdue)$"),
+    status: str = Query(default=None, pattern="^(paid|due)$"),
     page: int = 1,
     page_size: int = 50,
     startDate: str = None,

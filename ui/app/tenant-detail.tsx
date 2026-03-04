@@ -712,7 +712,7 @@ export default function TenantDetailScreen() {
                             <Text style={[styles.paymentDetailLabel, { color: colors.text.tertiary }]}>
                               Due:
                             </Text>
-                            <Text style={[styles.paymentDetailValue, { color: payment.status === 'overdue' ? colors.warning[600] : colors.text.secondary }]}>
+                            <Text style={[styles.paymentDetailValue, { color: colors.text.secondary }]}>
                               {formatDateWithOrdinal(payment.dueDate ?? '')}
                             </Text>
                           </View>

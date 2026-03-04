@@ -66,14 +66,9 @@ class PaymentService:
             parse_amount(p["amount"])
             for p in payments if p["status"] == PaymentStatus.DUE.value
         )
-        overdue = sum(
-            parse_amount(p["amount"])
-            for p in payments if p["status"] == PaymentStatus.OVERDUE.value
-        )
         return {
             'collected': f'₹{collected:,.0f}',
             'pending': f'₹{pending:,.0f}',
-            'overdue': f'₹{overdue:,.0f}',
         }
 
     async def update_payment(self, payment_id: str, payment_update) -> Optional[Payment]:

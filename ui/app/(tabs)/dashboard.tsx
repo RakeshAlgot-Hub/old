@@ -30,7 +30,6 @@ import { cacheKeys, getScreenCache, setScreenCache, clearScreenCache } from '@/s
 interface DashboardData {
   stats: DashboardStats;
   duePayments: Payment[];
-  overduePayments: Payment[];
 }
 
 const DASHBOARD_CACHE_STALE_MS = 60 * 1000;
@@ -82,10 +81,9 @@ export default function DashboardScreen() {
       setError(null);
 
       // Fetch aggregated stats and payments data
-      const [statsRes, dueRes, overdueRes] = await Promise.all([
+      const [statsRes, dueRes] = await Promise.all([
         dashboardService.getStats(selectedPropertyId),
         paymentService.getPayments(selectedPropertyId, { status: 'due', page: 1, pageSize: 10 }),
-        paymentService.getPayments(selectedPropertyId, { status: 'overdue', page: 1, pageSize: 10 }),
       ]);
 
       const stats = statsRes.data || {
@@ -96,17 +94,14 @@ export default function DashboardScreen() {
         occupancyRate: 0,
       };
       const duePayments = dueRes.data || [];
-      const overduePayments = overdueRes.data || [];
 
       setDashboardData({
         stats,
         duePayments,
-        overduePayments,
       });
       setScreenCache(cacheKey, {
         stats,
         duePayments,
-        overduePayments,
       });
     } catch (err: any) {
       setError(err?.message || 'Failed to load dashboard data');
@@ -274,43 +269,6 @@ export default function DashboardScreen() {
                     ))}
                   </View>
                 )}
-
-                {dashboardData && dashboardData.overduePayments.length > 0 && (
-                  <View style={styles.section}>
-                    <SectionHeader icon={AlertCircle} iconColor={colors.danger[500]} title="Overdue" />
-                    {dashboardData.overduePayments.map((payment, index) => {
-                      const dueDate = new Date(payment.dueDate || new Date().toISOString());
-                      const today = new Date();
-                      const diffTime = Math.abs(today.getTime() - dueDate.getTime());
-                      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-                      return (
-                        <Card key={index} style={styles.paymentCard}>
-                          <View style={styles.paymentRow}>
-                            <View style={styles.paymentInfo}>
-                              <Text style={[styles.paymentName, { color: colors.text.primary }]}>
-                                {payment.tenantName}
-                              </Text>
-                              <Text style={[styles.paymentRoom, { color: colors.text.secondary }]}>
-                                Room {payment.bed}
-                              </Text>
-                            </View>
-                            <View style={styles.paymentRight}>
-                              <Text style={[styles.paymentAmount, { color: colors.text.primary }]}>
-                                {payment.amount}
-                              </Text>
-                            <View style={[styles.overdueTag, { backgroundColor: isDark ? colors.danger[900] : colors.danger[100] }]}>
-                              <Text style={[styles.overdueText, { color: isDark ? colors.danger[200] : colors.danger[700] }]}>
-                                  {diffDays} {diffDays === 1 ? 'day' : 'days'}
-                                </Text>
-                              </View>
-                            </View>
-                          </View>
-                        </Card>
-                      );
-                    })}
-                  </View>
-                )}
               </>
             )}
           </>
@@ -397,15 +355,6 @@ const styles = StyleSheet.create({
   },
   paymentDate: {
     fontSize: typography.fontSize.sm,
-  },
-  overdueTag: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.sm,
-  },
-  overdueText: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: typography.fontWeight.semibold,
   },
 });
 

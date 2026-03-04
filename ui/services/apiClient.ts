@@ -452,7 +452,7 @@ export const paymentService = {
     propertyId?: string,
     options?: {
       tenantId?: string;
-      status?: 'paid' | 'due' | 'overdue';
+      status?: 'paid' | 'due';
       page?: number;
       pageSize?: number;
       startDate?: string;
@@ -495,17 +495,14 @@ export const paymentService = {
     ApiResponse<{
       collected: string;
       pending: string;
-      overdue: string;
     }>
   > {
     return await request<{
       collected: string;
       pending: string;
-      overdue: string;
     }>('GET', '/payments/stats', undefined, true) as ApiResponse<{
       collected: string;
       pending: string;
-      overdue: string;
     }>;
   },
 

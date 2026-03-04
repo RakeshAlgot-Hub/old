@@ -5,13 +5,12 @@ from enum import Enum
 class BillingStatus(str, Enum):
     PAID = 'paid'
     DUE = 'due'
-    OVERDUE = 'overdue'
 
 class BillingCycle(str, Enum):
     MONTHLY = 'monthly'
 
 class BillingConfig(BaseModel):
-    status: Literal['paid', 'due', 'overdue']
+    status: Literal['paid', 'due']
     billingCycle: Literal['monthly']
     anchorDay: int = Field(default=1, ge=1, le=31)
     method: Optional[str] = None

@@ -53,7 +53,7 @@ export default function TenantsScreen() {
   
   // Filter & Pagination
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState<'all' | 'paid' | 'due' | 'overdue'>('all');
+  const [selectedStatus, setSelectedStatus] = useState<'all' | 'paid' | 'due'>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 50;
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -274,8 +274,7 @@ export default function TenantsScreen() {
             const statusOptions = [
               { label: 'All', value: 'all' },
               { label: 'Paid', value: 'paid' },
-              { label: 'Due', value: 'due' },
-              { label: 'Overdue', value: 'overdue' }
+              { label: 'Due', value: 'due' }
             ];
             // You can use Alert for this or a custom modal
             alert('Filter by payment status - Consider adding a modal for better UX');

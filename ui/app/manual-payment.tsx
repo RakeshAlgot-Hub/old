@@ -29,7 +29,6 @@ const PAYMENT_METHODS = ['Cash', 'UPI', 'Bank Transfer', 'Online', 'Cheque'];
 const PAYMENT_STATUSES = [
   { value: 'paid', label: 'Paid' },
   { value: 'due', label: 'Due' },
-  { value: 'overdue', label: 'Overdue' },
 ] as const;
 
 type PaymentStatus = (typeof PAYMENT_STATUSES)[number]['value'];
