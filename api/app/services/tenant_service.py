@@ -217,15 +217,16 @@ class TenantService:
             # Set bed to available and clear tenantId
             await bed_service.update_bed(bed_id, BedUpdate(status=BedStatus.AVAILABLE.value, tenantId=None))
         
-        # Delete all payments associated with this tenant (cascade delete)
-        deleted_payments = await payment_service.delete_payments_by_tenant(tenant_id)
+        # IMPORTANT: Keep all payments associated with this tenant for financial records
+        # Do NOT delete payments - they are needed for revenue calculations and audit trails
+        # Instead, we just delete the tenant record
         
         # Delete the tenant
         await self.collection.delete_one({"_id": ObjectId(tenant_id)})
         return {
             "success": True, 
             "tenantId": tenant_id,
-            "deletedPayments": deleted_payments
+            "message": "Tenant deleted. Payment records preserved for financial auditing."
         }
 
     async def generate_monthly_payments(self):

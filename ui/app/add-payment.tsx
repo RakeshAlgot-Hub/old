@@ -221,12 +221,9 @@ export default function AddPaymentScreen() {
           keyboardShouldPersistTaps="handled">
           <View style={styles.logoContainer}>
             <View style={[styles.logoCircle, { backgroundColor: colors.primary[50] }]}>
-              <Wallet size={48} color={colors.primary[500]} />
+              <Wallet size={32} color={colors.primary[500]} />
             </View>
             <Text style={[styles.title, { color: colors.text.primary }]}>Record Payment</Text>
-            <Text style={[styles.subtitle, { color: colors.text.secondary }]}>
-              Track tenant payment details
-            </Text>
           </View>
 
           <View style={styles.formContainer}>
@@ -378,7 +375,7 @@ export default function AddPaymentScreen() {
         transparent
         animationType="fade"
         onRequestClose={() => setShowStatusPicker(false)}>
-        <View style={styles.modalOverlay}>
+        <View style={[styles.modalOverlay, { backgroundColor: colors.modal.overlay }]}>
           <View style={[styles.modalContainer, { backgroundColor: colors.background.secondary }]}>
             <View style={[styles.modalHeader, { borderBottomColor: colors.border.light }]}>
               <Text style={[styles.modalTitle, { color: colors.text.primary }]}>
@@ -434,7 +431,7 @@ export default function AddPaymentScreen() {
           transparent
           animationType="fade"
           onRequestClose={() => setShowAnchorDayPicker(false)}>
-          <View style={styles.modalOverlay}>
+          <View style={[styles.modalOverlay, { backgroundColor: colors.modal.overlay }]}>
             <View style={[styles.modalContainer, { backgroundColor: colors.background.secondary }]}>
               <View style={[styles.modalHeader, { borderBottomColor: colors.border.light }]}>
                 <Text style={[styles.modalTitle, { color: colors.text.primary }]}>When is rent due?</Text>
@@ -481,7 +478,7 @@ export default function AddPaymentScreen() {
           transparent
           animationType="fade"
           onRequestClose={() => setShowMethodPicker(false)}>
-          <View style={styles.modalOverlay}>
+          <View style={[styles.modalOverlay, { backgroundColor: colors.modal.overlay }]}>
             <View style={[styles.modalContainer, { backgroundColor: colors.background.secondary }]}>
               <View style={[styles.modalHeader, { borderBottomColor: colors.border.light }]}>
                 <Text style={[styles.modalTitle, { color: colors.text.primary }]}>Select Payment Method</Text>
@@ -575,24 +572,20 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: spacing.xxxl,
+    marginBottom: spacing.lg,
   },
   logoCircle: {
-    width: 96,
-    height: 96,
+    width: 60,
+    height: 60,
     borderRadius: radius.full,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.xl,
+    marginBottom: spacing.lg,
   },
   title: {
-    fontSize: typography.fontSize.xxxl,
+    fontSize: typography.fontSize.xl,
     fontWeight: typography.fontWeight.bold,
-    marginBottom: spacing.sm,
-  },
-  subtitle: {
-    fontSize: typography.fontSize.md,
-    textAlign: 'center',
+    marginBottom: 0,
   },
   formContainer: {
     width: '100%',
@@ -693,7 +686,6 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
   modalContainer: {

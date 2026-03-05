@@ -17,13 +17,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import ScreenContainer from '@/components/ScreenContainer';
+import FAB from '@/components/FAB';
 import { spacing, typography, radius, shadows } from '@/theme';
 import { useTheme } from '@/context/ThemeContext';
 import { useProperty } from '@/context/PropertyContext';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { staffService, subscriptionService } from '@/services/apiClient';
 import { Staff, Subscription, PlanLimits } from '@/services/apiTypes';
-import { ChevronLeft, Plus, Trash2, Edit2, X, Users, AlertCircle, Calendar, ChevronDown, MapPin } from 'lucide-react-native';
+import { ChevronLeft, Trash2, Edit2, X, Users, AlertCircle, Calendar, ChevronDown, MapPin } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import Card from '@/components/Card';
 import EmptyState from '@/components/EmptyState';
@@ -411,19 +412,7 @@ export default function ManageStaffScreen() {
             {staffList.length} {staffList.length === 1 ? 'member' : 'members'}
           </Text>
         </View>
-        <TouchableOpacity
-          style={[
-            styles.addHeaderButton,
-            {
-              backgroundColor: colors.primary[50],
-              opacity: subscription && hasReachedStaffLimit ? 0.5 : 1,
-            },
-          ]}
-          onPress={openAddModal}
-          disabled={!!(subscription && hasReachedStaffLimit)}
-          activeOpacity={0.8}>
-          <Plus size={20} color={colors.primary[600]} strokeWidth={2.5} />
-        </TouchableOpacity>
+        <View style={styles.placeholder} />
       </View>
 
       {/* Quota Banner */}
@@ -517,6 +506,8 @@ export default function ManageStaffScreen() {
         />
       )}
 
+      <FAB onPress={openAddModal} disabled={!!(subscription && hasReachedStaffLimit)} />
+
       {/* Add/Edit Modal */}
       <Modal visible={showAddModal} animationType="slide" transparent={false}>
         <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]}>
@@ -543,12 +534,9 @@ export default function ManageStaffScreen() {
               keyboardShouldPersistTaps="handled">
               <View style={styles.logoContainer}>
                 <View style={[styles.logoCircle, { backgroundColor: colors.background.tertiary }]}>
-                  <Users size={48} color={colors.primary[500]} />
+                  <Users size={32} color={colors.primary[500]} />
                 </View>
                 <Text style={[styles.title, { color: colors.text.primary }]}>{editingStaff ? 'Edit Staff Member' : 'Add New Staff'}</Text>
-                <Text style={[styles.subtitle, { color: colors.text.secondary }]}>
-                  Fill in staff member details
-                </Text>
               </View>
 
               <View style={styles.form}>
@@ -720,7 +708,7 @@ export default function ManageStaffScreen() {
         transparent
         animationType="fade"
         onRequestClose={() => setShowRolePicker(false)}>
-        <View style={styles.modalOverlay}>
+        <View style={[styles.modalOverlay, { backgroundColor: colors.modal.overlay }]}>
           <View style={[styles.modalContainer, { backgroundColor: colors.background.secondary }]}>
             <View style={[styles.modalHeader, { borderBottomColor: colors.border.light }]}>
               <Text style={[styles.modalTitle, { color: colors.text.primary }]}>
@@ -775,7 +763,7 @@ export default function ManageStaffScreen() {
 
       {/* Delete Confirmation Modal */}
       <Modal visible={showDeleteConfirm} transparent animationType="fade">
-        <View style={[styles.overlay, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
+        <View style={[styles.overlay, { backgroundColor: colors.modal.overlay }]}>
           <View style={[styles.deleteModal, { backgroundColor: colors.background.secondary }]}>
             <TouchableOpacity
               style={styles.closeButton}
@@ -871,13 +859,6 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontSize: typography.fontSize.sm,
     marginTop: spacing.xs,
-  },
-  addHeaderButton: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   quotaBanner: {
     paddingHorizontal: spacing.lg,
@@ -1069,7 +1050,6 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContainer: {
     borderTopLeftRadius: radius.xl,
@@ -1191,24 +1171,20 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: spacing.xxxl,
+    marginBottom: spacing.lg,
   },
   logoCircle: {
-    width: 96,
-    height: 96,
+    width: 60,
+    height: 60,
     borderRadius: radius.full,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.xl,
+    marginBottom: spacing.lg,
   },
   title: {
-    fontSize: typography.fontSize.xxxl,
+    fontSize: typography.fontSize.xl,
     fontWeight: typography.fontWeight.bold,
-    marginBottom: spacing.sm,
-  },
-  subtitle: {
-    fontSize: typography.fontSize.md,
-    textAlign: 'center',
+    marginBottom: 0,
   },
   form: {
     width: '100%',

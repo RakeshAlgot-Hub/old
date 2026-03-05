@@ -31,7 +31,7 @@ import {
   ChevronDown,
 } from 'lucide-react-native';
 import { Bed as BedIcon } from 'lucide-react-native';
-import { spacing, typography, radius, shadows } from '@/theme';
+import { spacing, typography, radius, shadows, addActionTokens } from '@/theme';
 import { useTheme } from '@/context/ThemeContext';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { tenantService, paymentService, roomService } from '@/services/apiClient';
@@ -663,7 +663,7 @@ export default function TenantDetailScreen() {
                     style={[styles.actionButton, { backgroundColor: colors.primary[500] }]}
                     onPress={handleGenerateDue}
                     activeOpacity={0.7}>
-                    <Plus size={16} color={colors.white} />
+                    <Plus size={addActionTokens.iconSize.compact} color={colors.action.add.icon} />
                     <Text style={[styles.actionButtonText, { color: colors.white }]}> 
                       Generate Due
                     </Text>
@@ -888,7 +888,7 @@ export default function TenantDetailScreen() {
         transparent
         animationType="fade"
         onRequestClose={() => setShowAnchorDayPicker(false)}>
-        <View style={styles.pickerOverlay}>
+        <View style={[styles.pickerOverlay, { backgroundColor: colors.modal.overlay }]}>
           <View style={[styles.pickerContainer, { backgroundColor: colors.background.secondary }]}>
             <View style={[styles.pickerHeader, { borderBottomColor: colors.border.light }]}>
               <Text style={[styles.pickerTitle, { color: colors.text.primary }]}>When is rent due each month?</Text>
@@ -1096,7 +1096,6 @@ const styles = StyleSheet.create({
   },
   paymentDetailLabel: {
     fontSize: typography.fontSize.xs,
-    color: 'rgba(0,0,0,0.5)',
   },
   paymentDetailValue: {
     fontSize: typography.fontSize.xs,
@@ -1281,7 +1280,6 @@ const styles = StyleSheet.create({
   },
   pickerOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
   pickerContainer: {

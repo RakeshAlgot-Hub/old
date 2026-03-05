@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { UserPlus, Eye, EyeOff } from 'lucide-react-native';
-import { spacing, typography, radius, shadows } from '@/theme';
+import { spacing, typography, radius, shadows, addActionTokens } from '@/theme';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { authService } from '@/services/apiClient';
@@ -184,7 +184,7 @@ export default function RegisterScreen() {
           keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
             <View style={[styles.iconCircle, { backgroundColor: colors.primary[50] }]}>
-              <UserPlus size={40} color={colors.primary[500]} />
+              <UserPlus size={addActionTokens.iconSize.userPlus.auth} color={colors.action.add.background} />
             </View>
             <Text style={[styles.title, { color: colors.text.primary }]}>Create Account</Text>
             <Text style={[styles.subtitle, { color: colors.text.secondary }]}>
@@ -470,28 +470,28 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
   },
   header: {
     alignItems: 'center',
-    marginBottom: spacing.xxl,
+    marginBottom: spacing.xl,
   },
   iconCircle: {
-    width: 88,
-    height: 88,
+    width: 72,
+    height: 72,
     borderRadius: radius.full,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.lg,
   },
   title: {
-    fontSize: typography.fontSize.xxl,
+    fontSize: typography.fontSize.xl,
     fontWeight: typography.fontWeight.bold,
     marginBottom: spacing.sm,
   },
   subtitle: {
-    fontSize: typography.fontSize.md,
+    fontSize: typography.fontSize.sm,
   },
   formContainer: {
     width: '100%',
@@ -519,7 +519,7 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.semibold,
   },
   inputContainer: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   label: {
     fontSize: typography.fontSize.sm,
@@ -528,7 +528,7 @@ const styles = StyleSheet.create({
   },
   input: {
     borderRadius: radius.md,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     fontSize: typography.fontSize.md,
     borderWidth: 1,
@@ -538,30 +538,30 @@ const styles = StyleSheet.create({
   },
   passwordInput: {
     borderRadius: radius.md,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
-    paddingRight: 50,
+    paddingRight: 40,
     fontSize: typography.fontSize.md,
     borderWidth: 1,
   },
   eyeIcon: {
     position: 'absolute',
-    right: spacing.lg,
+    right: spacing.md,
     top: '50%',
     transform: [{ translateY: -10 }],
   },
   otpContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
+    gap: spacing.xs,
+    marginBottom: spacing.md,
   },
   otpInput: {
     flex: 1,
     borderRadius: radius.md,
     borderWidth: 1,
     paddingVertical: spacing.md,
-    fontSize: typography.fontSize.lg,
+    fontSize: typography.fontSize.md,
     fontWeight: typography.fontWeight.semibold,
   },
   primaryButton: {

@@ -16,6 +16,12 @@ import {
   TrendingUp,
   AlertCircle,
   Clock,
+  IndianRupee,
+  CheckCircle,
+  LogIn,
+  LogOut,
+  Wrench,
+  ArrowRight,
 } from 'lucide-react-native';
 import { spacing, typography, radius } from '@/theme';
 import { useTheme } from '@/context/ThemeContext';
@@ -83,7 +89,7 @@ export default function DashboardScreen() {
       // Fetch aggregated stats and payments data
       const [statsRes, dueRes] = await Promise.all([
         dashboardService.getStats(selectedPropertyId),
-        paymentService.getPayments(selectedPropertyId, { status: 'due', page: 1, pageSize: 10 }),
+        paymentService.getPayments(selectedPropertyId, { status: 'due', page: 1, pageSize: 5 }),
       ]);
 
       const stats = statsRes.data || {
@@ -92,6 +98,19 @@ export default function DashboardScreen() {
         occupiedBeds: 0,
         availableBeds: 0,
         occupancyRate: 0,
+        monthlyRevenue: 0,
+        monthlyRevenueFormatted: '₹0',
+        pendingPayments: 0,
+        duePaymentAmount: 0,
+        duePaymentAmountFormatted: '₹0',
+        paidThisMonth: 0,
+        paidThisMonthFormatted: '₹0',
+        checkInsToday: 0,
+        upcomingCheckIns: 0,
+        totalStaff: 0,
+        availableStaff: 0,
+        maintenanceAlerts: 0,
+        urgentAlerts: 0,
       };
       const duePayments = dueRes.data || [];
 
@@ -162,7 +181,7 @@ export default function DashboardScreen() {
   const occupiedBeds = dashboardData?.stats.occupiedBeds || 0;
   const occupancyRate = dashboardData?.stats.occupancyRate || 0;
 
-  const stats = [
+  const mainStats = [
     {
       icon: Bed,
       label: 'Total Beds',
@@ -179,8 +198,15 @@ export default function DashboardScreen() {
       icon: TrendingUp,
       label: 'Occupancy',
       value: `${occupancyRate}%`,
-      color: colors.warning[500],
+      color: colors.primary[500],
     },
+  ];
+
+  const quickActions = [
+    { icon: Users, label: 'Add Tenant', route: '/add-tenant' },
+    { icon: IndianRupee, label: 'Add Payment', route: '/add-payment' },
+    { icon: Building2, label: 'Manage Rooms', route: '/manage-rooms' },
+    { icon: Wrench, label: 'Manage Staff', route: '/manage-staff' },
   ];
 
   return (
@@ -203,7 +229,7 @@ export default function DashboardScreen() {
               <Text style={[styles.greeting, { color: colors.text.secondary }]}>Welcome back,</Text>
               <Text style={[styles.ownerName, { color: colors.text.primary }]}>Property Owner</Text>
             </View>
-            <Skeleton height={120} count={2} />
+            <Skeleton height={120} count={3} />
           </>
         ) : error ? (
           <>
@@ -230,8 +256,9 @@ export default function DashboardScreen() {
               />
             ) : (
               <>
+                {/* Main Stats */}
                 <View style={styles.statsGrid}>
-                  {stats.map((stat, index) => (
+                  {mainStats.map((stat, index) => (
                     <Card key={index} style={styles.statCard}>
                       <View style={[styles.iconContainer, { backgroundColor: stat.color }]}>
                         <stat.icon size={20} color={colors.white} />
@@ -242,9 +269,112 @@ export default function DashboardScreen() {
                   ))}
                 </View>
 
+                {/* Revenue Section */}
+                {dashboardData?.stats.monthlyRevenue !== undefined && (
+                  <Card style={styles.revenueCard}>
+                    <View style={styles.revenueSectionHeader}>
+                      <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Monthly Revenue</Text>
+                      <IndianRupee size={20} color={colors.success[500]} />
+                    </View>
+                    <View style={styles.revenueRow}>
+                      <View style={styles.revenueItem}>
+                        <Text style={[styles.revenueLabel, { color: colors.text.secondary }]}>Total Earned</Text>
+                        <Text style={[styles.revenueValue, { color: colors.success[500] }]}>
+                          {dashboardData.stats.monthlyRevenueFormatted || '₹0'}
+                        </Text>
+                      </View>
+                      <View style={styles.revenueDivider} />
+                      <View style={styles.revenueItem}>
+                        <Text style={[styles.revenueLabel, { color: colors.text.secondary }]}>Pending</Text>
+                        <Text style={[styles.revenueValue, { color: colors.primary[500] }]}>
+                          {dashboardData.stats.duePaymentAmountFormatted || '₹0'}
+                        </Text>
+                      </View>
+                    </View>
+                  </Card>
+                )}
+
+                {/* Quick Stats */}
+                <View style={styles.quickStatsContainer}>
+                  {dashboardData?.stats.pendingPayments !== undefined && (
+                    <TouchableOpacity 
+                      onPress={() => router.push('/payments')}
+                      activeOpacity={0.7}>
+                      <Card style={styles.quickStatCard}>
+                        <View style={[styles.quickStatIcon, { backgroundColor: colors.primary[50] }]}>
+                          <AlertCircle size={18} color={colors.primary[500]} />
+                        </View>
+                        <View>
+                          <Text style={[styles.quickStatLabel, { color: colors.text.secondary }]}>Due Payments</Text>
+                          <Text style={[styles.quickStatValue, { color: colors.text.primary }]}>
+                            {dashboardData.stats.pendingPayments}
+                          </Text>
+                        </View>
+                      </Card>
+                    </TouchableOpacity>
+                  )}
+
+                  {dashboardData?.stats.checkInsToday !== undefined && (
+                    <Card style={styles.quickStatCard}>
+                      <View style={[styles.quickStatIcon, { backgroundColor: colors.success[50] }]}>
+                        <LogIn size={18} color={colors.success[500]} />
+                      </View>
+                      <View>
+                        <Text style={[styles.quickStatLabel, { color: colors.text.secondary }]}>Check-ins Today</Text>
+                        <Text style={[styles.quickStatValue, { color: colors.text.primary }]}>
+                          {dashboardData.stats.checkInsToday}
+                        </Text>
+                      </View>
+                    </Card>
+                  )}
+
+                  {dashboardData?.stats.totalStaff !== undefined && (
+                    <Card style={styles.quickStatCard}>
+                      <View style={[styles.quickStatIcon, { backgroundColor: colors.purple[50] }]}>
+                        <Users size={18} color={colors.purple[500]} />
+                      </View>
+                      <View>
+                        <Text style={[styles.quickStatLabel, { color: colors.text.secondary }]}>Staff Available</Text>
+                        <Text style={[styles.quickStatValue, { color: colors.text.primary }]}>
+                          {dashboardData.stats.availableStaff || 0}/{dashboardData.stats.totalStaff}
+                        </Text>
+                      </View>
+                    </Card>
+                  )}
+                </View>
+
+                {/* Quick Actions */}
+                <View style={styles.section}>
+                  <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Quick Actions</Text>
+                  <View style={styles.quickActionsGrid}>
+                    {quickActions.map((action, index) => (
+                      <TouchableOpacity
+                        key={index}
+                        style={styles.quickActionButton}
+                        onPress={() => router.push(action.route as any)}
+                        activeOpacity={0.7}>
+                        <Card style={styles.actionCard}>
+                          <View style={[styles.actionIcon, { backgroundColor: colors.primary[50] }]}>
+                            <action.icon size={24} color={colors.primary[500]} />
+                          </View>
+                          <Text style={[styles.actionLabel, { color: colors.text.primary }]}>
+                            {action.label}
+                          </Text>
+                        </Card>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Due Payments Section */}
                 {dashboardData && dashboardData.duePayments.length > 0 && (
                   <View style={styles.section}>
-                    <SectionHeader icon={Clock} iconColor={colors.primary[500]} title="Due Soon" />
+                    <View style={styles.sectionHeaderRow}>
+                      <SectionHeader icon={Clock} iconColor={colors.primary[500]} title="Due Soon" />
+                      <TouchableOpacity onPress={() => router.push('/payments')} activeOpacity={0.7}>
+                        <ArrowRight size={18} color={colors.primary[500]} />
+                      </TouchableOpacity>
+                    </View>
                     {dashboardData.duePayments.map((payment, index) => (
                       <Card key={index} style={styles.paymentCard}>
                         <View style={styles.paymentRow}>
@@ -280,37 +410,39 @@ export default function DashboardScreen() {
 
 const styles = StyleSheet.create({
   scrollContent: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingBottom: spacing.xxxl,
   },
   header: {
-    paddingVertical: spacing.xl,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.md,
   },
   greeting: {
-    fontSize: typography.fontSize.md,
+    fontSize: typography.fontSize.sm,
     marginBottom: spacing.xs,
   },
   ownerName: {
-    fontSize: typography.fontSize.xxxl,
+    fontSize: typography.fontSize.xxl,
     fontWeight: typography.fontWeight.bold,
   },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginHorizontal: -spacing.xs,
-    marginBottom: spacing.xl,
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
   },
   statCard: {
-    width: '31.33%',
-    marginHorizontal: '1%',
+    flex: 1,
+    minWidth: '30%',
     marginBottom: spacing.sm,
     alignItems: 'center',
-    paddingVertical: spacing.xl,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.sm,
   },
   iconContainer: {
     width: 48,
     height: 48,
-    borderRadius: radius.full,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.md,
@@ -323,8 +455,99 @@ const styles = StyleSheet.create({
   statLabel: {
     fontSize: typography.fontSize.sm,
   },
+  revenueCard: {
+    marginBottom: spacing.lg,
+  },
+  revenueSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  sectionTitle: {
+    fontSize: typography.fontSize.md,
+    fontWeight: typography.fontWeight.bold,
+  },
+  revenueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  revenueItem: {
+    flex: 1,
+  },
+  revenueLabel: {
+    fontSize: typography.fontSize.sm,
+    marginBottom: spacing.xs,
+  },
+  revenueValue: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.bold,
+  },
+  revenueDivider: {
+    width: 1,
+    height: 40,
+    opacity: 0.2,
+  },
+  quickStatsContainer: {
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  quickStatCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+  },
+  quickStatIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  quickStatLabel: {
+    fontSize: typography.fontSize.sm,
+    marginBottom: spacing.xs,
+  },
+  quickStatValue: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.bold,
+  },
   section: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing.lg,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  quickActionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  quickActionButton: {
+    width: '48%',
+  },
+  actionCard: {
+    alignItems: 'center',
+    paddingVertical: spacing.lg,
+  },
+  actionIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+  },
+  actionLabel: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semibold,
+    textAlign: 'center',
   },
   paymentCard: {
     marginBottom: spacing.sm,

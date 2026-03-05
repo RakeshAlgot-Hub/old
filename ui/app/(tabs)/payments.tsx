@@ -379,7 +379,7 @@ export default function PaymentsScreen() {
         transparent
         animationType="slide"
         onRequestClose={() => setShowFilterModal(false)}>
-        <View style={styles.filterModalOverlay}>
+        <View style={[styles.filterModalOverlay, { backgroundColor: colors.modal.overlay }]}>
           <View style={[styles.filterModalContent, { backgroundColor: colors.background.primary }]}>
             <View style={[styles.filterModalHeader, { borderBottomColor: colors.border.light }]}>
               <Text style={[styles.filterModalTitle, { color: colors.text.primary }]}>Filter Payments</Text>
@@ -487,18 +487,18 @@ export default function PaymentsScreen() {
 
 const styles = StyleSheet.create({
   scrollContent: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingBottom: spacing.xxxl,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
   },
   headerTitle: {
-    fontSize: typography.fontSize.xxxl,
+    fontSize: typography.fontSize.xxl,
     fontWeight: typography.fontWeight.bold,
   },
   filterButton: {
@@ -616,7 +616,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginVertical: spacing.sm,
-    marginHorizontal: spacing.lg,
+    marginHorizontal: spacing.md,
     paddingHorizontal: spacing.xs,
     paddingVertical: spacing.sm,
     borderRadius: radius.lg,
@@ -636,9 +636,9 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   monthYearText: {
-    fontSize: typography.fontSize.md,
+    fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.bold,
-    minWidth: 120,
+    minWidth: 100,
     textAlign: 'center',
   },
   monthLoader: {
@@ -648,11 +648,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     borderRadius: radius.md,
     borderWidth: 1,
     marginBottom: spacing.md,
+    marginHorizontal: spacing.md,
   },
   filterSummaryText: {
     fontSize: typography.fontSize.sm,
@@ -664,7 +665,6 @@ const styles = StyleSheet.create({
   },
   filterModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
   filterModalContent: {
@@ -677,17 +677,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
     borderBottomWidth: 1,
   },
   filterModalTitle: {
-    fontSize: typography.fontSize.xl,
+    fontSize: typography.fontSize.lg,
     fontWeight: typography.fontWeight.bold,
   },
   filterModalBody: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
   },
   filterSection: {
     marginBottom: spacing.xl,
@@ -715,8 +715,8 @@ const styles = StyleSheet.create({
   filterModalFooter: {
     flexDirection: 'row',
     gap: spacing.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
     borderTopWidth: 1,
   },
   clearFiltersButton: {

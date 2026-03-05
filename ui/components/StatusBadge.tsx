@@ -8,7 +8,7 @@ interface StatusBadgeProps {
 }
 
 export default function StatusBadge({ status, label }: StatusBadgeProps) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
 
   const statusConfig = {
     paid: {
@@ -18,12 +18,12 @@ export default function StatusBadge({ status, label }: StatusBadgeProps) {
     },
     due: {
       bg: colors.primary[50],
-      text: colors.primary[700],
+      text: isDark ? colors.primary[600] : colors.primary[700],
       label: label || 'DUE',
     },
     occupied: {
       bg: colors.primary[50],
-      text: colors.primary[700],
+      text: isDark ? colors.primary[600] : colors.primary[700],
       label: label || 'OCCUPIED',
     },
     vacant: {

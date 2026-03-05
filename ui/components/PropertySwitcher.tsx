@@ -96,8 +96,8 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     borderBottomWidth: 1,
   },
   textContainer: {
@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
   },
   propertyName: {
-    fontSize: typography.fontSize.md,
+    fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.semibold,
   },
   overlay: {
@@ -117,47 +117,47 @@ const styles = StyleSheet.create({
   modalContainer: {
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
-    maxHeight: '70%',
+    maxHeight: '75%',
     ...shadows.xl,
   },
   header: {
-    padding: spacing.lg,
+    padding: spacing.md,
     borderBottomWidth: 1,
   },
   headerTitle: {
-    fontSize: typography.fontSize.xl,
+    fontSize: typography.fontSize.lg,
     fontWeight: typography.fontWeight.bold,
     textAlign: 'center',
   },
   scrollView: {
-    maxHeight: 400,
+    maxHeight: '60%',
   },
   propertyItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: spacing.lg,
+    padding: spacing.md,
     borderBottomWidth: 1,
   },
   propertyInfo: {
     flex: 1,
-    marginRight: spacing.md,
+    marginRight: spacing.sm,
   },
   propertyItemName: {
-    fontSize: typography.fontSize.md,
+    fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.semibold,
     marginBottom: spacing.xs,
   },
   propertyAddress: {
-    fontSize: typography.fontSize.sm,
+    fontSize: typography.fontSize.xs,
   },
   closeButton: {
-    padding: spacing.lg,
+    padding: spacing.md,
     borderTopWidth: 1,
     alignItems: 'center',
   },
   closeButtonText: {
-    fontSize: typography.fontSize.md,
+    fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.semibold,
   },
 });

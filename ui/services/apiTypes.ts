@@ -304,7 +304,33 @@ export interface DashboardStats {
   occupiedBeds: number;
   availableBeds: number;
   occupancyRate: number;
+  // Revenue metrics
+  monthlyRevenue?: number; // Revenue in paise
+  monthlyRevenueFormatted?: string;
+  pendingPayments?: number; // Count of pending payments
+  duePaymentAmount?: number; // Total due amount in paise
+  paidThisMonth?: number; // Paid amount this month in paise
+  // Check-in/Check-out
+  checkInsToday?: number;
+  checkOutsToday?: number;
+  upcomingCheckIns?: number;
+  // Staff info
+  totalStaff?: number;
+  availableStaff?: number;
+  // Alerts
+  maintenanceAlerts?: number;
+  urgentAlerts?: number;
 }
+
+export interface RecentCheckInOut {
+  id: string;
+  tenantName: string;
+  roomNumber: string;
+  type: 'check-in' | 'check-out';
+  date: string;
+  status: 'completed' | 'pending';
+}
+
 
 export interface RazorpayCheckoutSession {
   razorpayOrderId: string;

@@ -131,12 +131,9 @@ export default function RoomFormScreen() {
           keyboardShouldPersistTaps="handled">
           <View style={styles.logoContainer}>
             <View style={[styles.logoCircle, { backgroundColor: colors.primary[50] }]}>
-              <DoorOpen size={48} color={colors.primary[500]} />
+              <DoorOpen size={32} color={colors.primary[500]} />
             </View>
             <Text style={[styles.title, { color: colors.text.primary }]}>Create Room</Text>
-            <Text style={[styles.subtitle, { color: colors.text.secondary }]}>
-              Add a new room to your property
-            </Text>
           </View>
 
           <View style={styles.formContainer}>
@@ -298,7 +295,7 @@ export default function RoomFormScreen() {
         transparent
         animationType="fade"
         onRequestClose={() => setShowFloorPicker(false)}>
-        <View style={styles.modalOverlay}>
+        <View style={[styles.modalOverlay, { backgroundColor: colors.modal.overlay }]}>
           <View style={[styles.modalContainer, { backgroundColor: colors.background.secondary }]}>
             <View style={[styles.modalHeader, { borderBottomColor: colors.border.light }]}>
               <Text style={[styles.modalTitle, { color: colors.text.primary }]}>
@@ -390,29 +387,25 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
     paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.lg,
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: spacing.xxxl,
+    marginBottom: spacing.lg,
   },
   logoCircle: {
-    width: 96,
-    height: 96,
+    width: 60,
+    height: 60,
     borderRadius: radius.full,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.xl,
+    marginBottom: spacing.lg,
   },
   title: {
-    fontSize: typography.fontSize.xxxl,
+    fontSize: typography.fontSize.xl,
     fontWeight: typography.fontWeight.bold,
-    marginBottom: spacing.sm,
-  },
-  subtitle: {
-    fontSize: typography.fontSize.md,
-    textAlign: 'center',
+    marginBottom: 0,
   },
   formContainer: {
     width: '100%',
@@ -480,7 +473,6 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
   modalContainer: {

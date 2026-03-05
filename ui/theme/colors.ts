@@ -110,6 +110,17 @@ export const lightTheme = {
     medium: '#E5E7EB',
     dark: '#D1D5DB',
   },
+
+  action: {
+    add: {
+      background: colorPalette.primary[500],
+      icon: colorPalette.white,
+    },
+  },
+
+  modal: {
+    overlay: 'rgba(15, 23, 42, 0.5)',
+  },
 };
 
 export const darkTheme = {
@@ -139,6 +150,17 @@ export const darkTheme = {
     light: '#334155',
     medium: '#475569',
     dark: '#64748B',
+  },
+
+  action: {
+    add: {
+      background: colorPalette.primary[500],
+      icon: colorPalette.white,
+    },
+  },
+
+  modal: {
+    overlay: 'rgba(0, 0, 0, 0.6)',
   },
 };
 

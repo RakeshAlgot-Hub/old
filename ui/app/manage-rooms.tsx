@@ -200,105 +200,88 @@ export default function ManageRoomsScreen() {
         }>
         {error ? (
           <ApiErrorCard error={error} onRetry={handleRetry} />
-        ) : rooms.length === 0 ? (
-          <EmptyState
-            icon={DoorOpen}
-            title="No Rooms Yet"
-            subtitle="Add rooms to your property to get started"
-            actionLabel="Add Room"
-            onActionPress={handleAddRoom}
-          />
         ) : (
           <>
-            <View style={styles.summaryContainer}>
-              <Text style={[styles.summaryText, { color: colors.text.secondary }]}>
-                {rooms.length} {rooms.length === 1 ? 'Room' : 'Rooms'}
-              </Text>
-              <Text style={[styles.propertyName, { color: colors.text.primary }]}>
-                {selectedProperty.name}
-              </Text>
-            </View>
-
             {rooms.map((room, index) => (
-              <Card key={index} style={[styles.roomCard, room.active === false ? { opacity: 0.6 } : {}] as any}>
-                <View style={styles.roomHeader}>
-                  <View style={[styles.roomIconContainer, { backgroundColor: room.active === false ? colors.neutral[100] : colors.primary[50] }]}>
-                    <DoorOpen size={24} color={room.active === false ? colors.text.tertiary : colors.primary[500]} />
-                  </View>
-                  <View style={styles.roomInfo}>
-                    <View style={styles.roomNameRow}>
-                      <Text style={[styles.roomNumber, { color: colors.text.primary }]}>
-                        Room {room.roomNumber}
-                      </Text>
-                      {room.active === false && (
-                        <View style={[styles.archivedBadge, { backgroundColor: colors.warning[100] }]}>
-                          <Archive size={12} color={colors.warning[600]} />
-                          <Text style={[styles.archivedBadgeText, { color: colors.warning[600] }]}>Archived</Text>
-                        </View>
-                      )}
-                      {room.active !== false && (
-                        <View style={styles.roomActionIcons}>
-                          <TouchableOpacity
-                            style={styles.roomIconButton}
-                            onPress={() => handleEditRoom(room)}
-                            activeOpacity={0.6}
-                            disabled={!isOnline}>
-                            <Edit size={16} color={colors.primary[600]} />
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={styles.roomIconButton}
-                            onPress={() => handleDeleteRoom(room)}
-                            activeOpacity={0.6}
-                            disabled={!isOnline}>
-                            <Trash2 size={16} color={colors.danger[600]} />
-                          </TouchableOpacity>
-                        </View>
-                      )}
+              <Card key={index} style={[styles.roomCard, room.active === false ? { opacity: 0.65 } : {}] as any}>
+                <View style={styles.roomCardContent}>
+                  <View style={styles.roomHeader}>
+                    <View style={[styles.roomIconContainer, { backgroundColor: room.active === false ? colors.neutral[100] : colors.primary[100] }]}>
+                      <DoorOpen size={24} color={room.active === false ? colors.text.tertiary : colors.primary[600]} />
                     </View>
-                    <Text style={[styles.roomFloor, { color: colors.text.secondary }]}>
-                      Floor: {room.floor}
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={[styles.divider, { backgroundColor: colors.border.light }]} />
-
-                <View style={styles.detailsRow}>
-                  <View style={styles.detailItem}>
-                    <View style={styles.detailIconRow}>
-                      <IndianRupee size={16} color={colors.success[500]} />
-                      <Text style={[styles.detailLabel, { color: colors.text.secondary }]}>
-                        Price
+                    <View style={styles.roomInfo}>
+                      <View style={styles.roomNameRow}>
+                        <Text style={[styles.roomNumber, { color: colors.text.primary }]}>
+                          Room {room.roomNumber}
+                        </Text>
+                        {room.active === false && (
+                          <View style={[styles.archivedBadge, { backgroundColor: colors.warning[100] }]}>
+                            <Archive size={12} color={colors.warning[600]} />
+                            <Text style={[styles.archivedBadgeText, { color: colors.warning[600] }]}>
+                              Archived
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={[styles.roomFloor, { color: colors.text.secondary }]}>
+                        Floor {room.floor}
                       </Text>
                     </View>
-                    <Text style={[styles.detailValue, { color: colors.text.primary }]}>
-                      ₹{room.price.toLocaleString()}
-                    </Text>
+                    {room.active !== false && (
+                      <View style={styles.roomActionIcons}>
+                        <TouchableOpacity
+                          style={[styles.roomIconButton, { backgroundColor: colors.primary[50] }]}
+                          onPress={() => handleEditRoom(room)}
+                          activeOpacity={0.6}
+                          disabled={!isOnline}>
+                          <Edit size={16} color={colors.primary[600]} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.roomIconButton, { backgroundColor: colors.danger[50] }]}
+                          onPress={() => handleDeleteRoom(room)}
+                          activeOpacity={0.6}
+                          disabled={!isOnline}>
+                          <Trash2 size={16} color={colors.danger[600]} />
+                        </TouchableOpacity>
+                      </View>
+                    )}
                   </View>
 
-                  <View style={styles.detailItem}>
-                    <View style={styles.detailIconRow}>
-                      <Bed size={16} color={colors.primary[500]} />
-                      <Text style={[styles.detailLabel, { color: colors.text.secondary }]}>
-                        Beds
-                      </Text>
+                  <View style={[styles.roomStatsContainer, { backgroundColor: room.active === false ? colors.background.primary : colors.background.tertiary }]}>
+                    <View style={styles.statItem}>
+                      <View style={[styles.statIconContainer, { backgroundColor: colors.success[50] }]}>
+                        <IndianRupee size={16} color={colors.success[600]} />
+                      </View>
+                      <View>
+                        <Text style={[styles.statLabel, { color: colors.text.secondary }]}>Price</Text>
+                        <Text style={[styles.statValue, { color: colors.text.primary }]}>
+                          ₹{room.price.toLocaleString()}
+                        </Text>
+                      </View>
                     </View>
-                    <Text style={[styles.detailValue, { color: colors.text.primary }]}>
-                      {room.numberOfBeds}
-                    </Text>
+
+                    <View style={styles.statDivider} />
+
+                    <View style={styles.statItem}>
+                      <View style={[styles.statIconContainer, { backgroundColor: colors.primary[50] }]}>
+                        <Bed size={16} color={colors.primary[600]} />
+                      </View>
+                      <View>
+                        <Text style={[styles.statLabel, { color: colors.text.secondary }]}>Beds</Text>
+                        <Text style={[styles.statValue, { color: colors.text.primary }]}>
+                          {room.numberOfBeds} bed{room.numberOfBeds !== 1 ? 's' : ''}
+                        </Text>
+                      </View>
+                    </View>
                   </View>
-                </View>
 
-                <View style={[styles.divider, { backgroundColor: colors.border.light }]} />
-
-                <View style={styles.actionsContainer}>
                   <TouchableOpacity
-                    style={[styles.viewBedsButton, { backgroundColor: colors.primary[50], borderColor: colors.primary[200] }]}
+                    style={[styles.viewBedsButton, { backgroundColor: colors.primary[500] }]}
                     onPress={() => router.push(`/manage-beds?roomId=${room.id}`)}
-                    activeOpacity={0.7}
+                    activeOpacity={0.8}
                     disabled={room.active === false}>
-                    <Eye size={16} color={room.active === false ? colors.text.tertiary : colors.primary[600]} />
-                    <Text style={[styles.viewBedsText, { color: room.active === false ? colors.text.tertiary : colors.primary[600] }]}>
+                    <Eye size={16} color={colors.white} />
+                    <Text style={[styles.viewBedsButtonText, { color: colors.white }]}>
                       View Beds
                     </Text>
                   </TouchableOpacity>
@@ -331,64 +314,79 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
     paddingBottom: spacing.xxxl,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
     borderBottomWidth: 1,
   },
   backButton: {
     width: 40,
   },
   headerTitle: {
-    fontSize: typography.fontSize.lg,
+    fontSize: typography.fontSize.md,
     fontWeight: typography.fontWeight.bold,
   },
-  placeholder: {
-    width: 40,
-  },
-  summaryContainer: {
-    marginVertical: spacing.lg,
-  },
-  summaryText: {
-    fontSize: typography.fontSize.sm,
-    marginBottom: spacing.xs,
-  },
-  propertyName: {
-    fontSize: typography.fontSize.xl,
-    fontWeight: typography.fontWeight.bold,
-  },
+
   roomCard: {
     marginBottom: spacing.md,
+    overflow: 'hidden',
   },
-  roomHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-  },
-  roomIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.md,
-  },
-  roomInfo: {
-    flex: 1,
-  },
-  roomNumber: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.bold,
-    marginBottom: spacing.xs,
+  roomCardContent: {
+    gap: spacing.md,
   },
   roomFloor: {
     fontSize: typography.fontSize.sm,
+  },
+  roomStatsContainer: {
+    flexDirection: 'row',
+    borderRadius: radius.md,
+    overflow: 'hidden',
+  },
+  statItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.sm,
+    gap: spacing.sm,
+  },
+  statIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statLabel: {
+    fontSize: typography.fontSize.xs,
+    marginBottom: 2,
+  },
+  statValue: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semibold,
+  },
+  statDivider: {
+    width: 1,
+    opacity: 0.1,
+  },
+  viewBedsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    gap: spacing.sm,
+  },
+  viewBedsButtonText: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semibold,
   },
   divider: {
     height: 1,
@@ -396,7 +394,7 @@ const styles = StyleSheet.create({
   },
   detailsRow: {
     flexDirection: 'row',
-    gap: spacing.lg,
+    gap: spacing.md,
   },
   detailItem: {
     flex: 1,
@@ -414,34 +412,21 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.md,
     fontWeight: typography.fontWeight.semibold,
   },
-  viewBedsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.md,
-    borderRadius: radius.md,
-    borderWidth: 1,
-  },
-  viewBedsText: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semibold,
-    marginLeft: spacing.xs,
-  },
   roomNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
     marginBottom: spacing.xs,
+    flex: 1,
   },
   roomActionIcons: {
     flexDirection: 'row',
     gap: spacing.xs,
-    marginLeft: 'auto',
     alignItems: 'center',
   },
   roomIconButton: {
     padding: spacing.xs,
-    borderRadius: radius.sm,
+    borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -475,5 +460,31 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.sm,
     fontWeight: typography.fontWeight.semibold,
     marginLeft: spacing.xs,
+  },
+  propertyName: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.bold,
+  },
+  placeholder: {
+    width: 40,
+  },
+  roomHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  roomIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  roomInfo: {
+    flex: 1,
+  },
+  roomNumber: {
+    fontSize: typography.fontSize.md,
+    fontWeight: typography.fontWeight.bold,
   },
 });

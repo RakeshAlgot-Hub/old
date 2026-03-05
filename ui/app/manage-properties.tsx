@@ -20,7 +20,7 @@ import FAB from '@/components/FAB';
 import EmptyState from '@/components/EmptyState';
 import Skeleton from '@/components/Skeleton';
 import ApiErrorCard from '@/components/ApiErrorCard';
-import { ChevronLeft, Building2, MapPin, Trash2, Edit, Archive, Plus, AlertTriangle, X } from 'lucide-react-native';
+import { ChevronLeft, Building2, MapPin, Trash2, Edit, Archive, AlertTriangle, X } from 'lucide-react-native';
 import { spacing, typography, radius, shadows } from '@/theme';
 import { useTheme } from '@/context/ThemeContext';
 import { useProperty } from '@/context/PropertyContext';
@@ -138,19 +138,7 @@ export default function ManagePropertiesScreen() {
           </Text>
         </View>
 
-        <TouchableOpacity
-          style={[
-            styles.addHeaderButton,
-            {
-              backgroundColor: colors.primary[50],
-              opacity: !isOnline ? 0.5 : 1,
-            },
-          ]}
-          onPress={handleAddProperty}
-          activeOpacity={0.6}
-          disabled={!isOnline}>
-          <Plus size={20} color={colors.primary[600]} strokeWidth={2.5} />
-        </TouchableOpacity>
+        <View style={styles.addHeaderButton} />
       </View>
 
       <ScrollView
@@ -303,6 +291,8 @@ export default function ManagePropertiesScreen() {
         )}
       </ScrollView>
 
+        <FAB onPress={handleAddProperty} disabled={!isOnline} />
+
       <ArchiveWarningModal
         visible={showArchiveWarning}
         resourceName={selectedProperty?.name || 'Property'}
@@ -316,7 +306,7 @@ export default function ManagePropertiesScreen() {
       />
 
       <Modal visible={showDeleteConfirm} transparent animationType="fade">
-        <View style={[styles.overlay, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
+        <View style={[styles.overlay, { backgroundColor: colors.modal.overlay }]}>
           <View style={[styles.deleteModal, { backgroundColor: colors.background.secondary }]}>
             <TouchableOpacity
               style={styles.closeButton}

@@ -212,41 +212,42 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   scrollContent: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingBottom: spacing.xxxl,
   },
   header: {
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
   },
   headerTitle: {
-    fontSize: typography.fontSize.xxxl,
+    fontSize: typography.fontSize.xxl,
     fontWeight: typography.fontWeight.bold,
   },
   profileCard: {
     alignItems: 'center',
-    paddingVertical: spacing.xxl,
-    marginBottom: spacing.xl,
+    paddingVertical: spacing.xl,
+    marginBottom: spacing.lg,
   },
   avatarContainer: {
     marginBottom: spacing.lg,
   },
   avatar: {
-    width: 96,
-    height: 96,
+    width: 80,
+    height: 80,
     borderRadius: radius.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
   ownerName: {
-    fontSize: typography.fontSize.xxl,
+    fontSize: typography.fontSize.xl,
     fontWeight: typography.fontWeight.bold,
     marginBottom: spacing.xs,
   },
   ownerRole: {
-    fontSize: typography.fontSize.md,
+    fontSize: typography.fontSize.sm,
   },
   section: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing.lg,
   },
   sectionTitle: {
     fontSize: typography.fontSize.lg,

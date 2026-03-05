@@ -482,7 +482,7 @@ export default function EditPaymentScreen() {
         transparent
         animationType="fade"
         onRequestClose={() => setShowMethodPicker(false)}>
-        <View style={styles.modalOverlay}>
+        <View style={[styles.modalOverlay, { backgroundColor: colors.modal.overlay }]}>
           <View style={[styles.modalContainer, { backgroundColor: colors.background.secondary }]}>
             <View style={[styles.modalHeader, { borderBottomColor: colors.border.light }]}>
               <Text style={[styles.modalTitle, { color: colors.text.primary }]}>
@@ -538,7 +538,7 @@ export default function EditPaymentScreen() {
         transparent
         animationType="fade"
         onRequestClose={() => setShowStatusPicker(false)}>
-        <View style={styles.modalOverlay}>
+        <View style={[styles.modalOverlay, { backgroundColor: colors.modal.overlay }]}>
           <View style={[styles.modalContainer, { backgroundColor: colors.background.secondary }]}>
             <View style={[styles.modalHeader, { borderBottomColor: colors.border.light }]}>
               <Text style={[styles.modalTitle, { color: colors.text.primary }]}>
@@ -592,7 +592,7 @@ export default function EditPaymentScreen() {
         transparent
         animationType="fade"
         onRequestClose={handleCancelStatusChange}>
-        <View style={styles.modalOverlay}>
+        <View style={[styles.modalOverlay, { backgroundColor: colors.modal.overlay }]}>
           <View style={[styles.confirmModalContainer, { backgroundColor: colors.background.secondary }]}>
             <View style={styles.confirmIconContainer}>
               <View style={[styles.confirmIcon, { backgroundColor: pendingStatus === 'paid' ? (isDark ? colors.success[900] : colors.success[50]) : (isDark ? colors.warning[900] : colors.warning[50]) }]}>
@@ -769,7 +769,6 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
   modalContainer: {

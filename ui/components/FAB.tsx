@@ -1,7 +1,7 @@
 import { TouchableOpacity, StyleSheet, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Plus } from 'lucide-react-native';
-import { shadows } from '@/theme';
+import { shadows, addActionTokens } from '@/theme';
 import { useRef } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 
@@ -17,7 +17,7 @@ export default function FAB({ onPress, disabled = false }: FABProps) {
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
-      toValue: 0.9,
+      toValue: addActionTokens.animation.pressScale,
       useNativeDriver: true,
     }).start();
   };
@@ -31,8 +31,10 @@ export default function FAB({ onPress, disabled = false }: FABProps) {
     }).start();
   };
 
-  const TAB_BAR_HEIGHT = 56;
-  const bottomOffset = (insets.bottom || 0) + TAB_BAR_HEIGHT + 16;
+  const bottomOffset =
+    (insets.bottom || 0) +
+    addActionTokens.fab.tabBarHeight +
+    addActionTokens.fab.bottomGap;
 
   return (
     <Animated.View
@@ -44,27 +46,29 @@ export default function FAB({ onPress, disabled = false }: FABProps) {
         },
       ]}>
       <TouchableOpacity
-        style={[styles.button, { backgroundColor: colors.primary[500], opacity: disabled ? 0.5 : 1 }]}
+        style={[styles.button, { backgroundColor: colors.action.add.background, opacity: disabled ? 0.5 : 1 }]}
         onPress={onPress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         activeOpacity={0.9}
         disabled={disabled}>
-        <Plus size={28} color={colors.white} />
+        <Plus size={addActionTokens.iconSize.fab} color={colors.action.add.icon} />
       </TouchableOpacity>
     </Animated.View>
   );
 }
 
+const fabSize = addActionTokens.fab.size;
+
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    right: 16,
+    right: addActionTokens.fab.rightOffset,
   },
   button: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: fabSize,
+    height: fabSize,
+    borderRadius: fabSize / 2,
     alignItems: 'center',
     justifyContent: 'center',
     ...shadows.lg,

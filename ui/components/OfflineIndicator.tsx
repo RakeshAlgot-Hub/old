@@ -12,7 +12,7 @@ export function OfflineIndicator() {
   }
 
   return (
-    <View style={[styles.container, { borderBottomColor: colors.border.medium }]}> 
+    <View style={[styles.container]}> 
       <WifiOff size={14} color={colors.text.secondary} />
       <Text style={[styles.text, { color: colors.text.secondary }]}>You are offline</Text>
     </View>
@@ -21,16 +21,16 @@ export function OfflineIndicator() {
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 8,
+    paddingVertical: 4,
     paddingHorizontal: 12,
     flexDirection: 'row',
-    gap: 6,
+    gap: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    borderBottomWidth: 1,
   },
   text: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '500',
   },
 });
+
