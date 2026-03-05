@@ -39,9 +39,8 @@ export default function LoginScreen() {
   const [lockoutTimer, setLockoutTimer] = useState<number | null>(null);
 
   const [request, response, promptAsync] = Google.useAuthRequest({
-    clientId: '191330746464-hpqels1vva079e0ml9getqieg59ijakf.apps.googleusercontent.com',
-    iosClientId: '191330746464-hpqels1vva079e0ml9getqieg59ijakf.apps.googleusercontent.com',
-    androidClientId: '191330746464-hpqels1vva079e0ml9getqieg59ijakf.apps.googleusercontent.com',
+    clientId: '286636123791-d19psn7pd71nc3mb1mco6a4tduaf2f8q.apps.googleusercontent.com',
+    androidClientId: '286636123791-d19psn7pd71nc3mb1mco6a4tduaf2f8q.apps.googleusercontent.com',
     scopes: ['profile', 'email'],
   });
 
