@@ -122,20 +122,6 @@ export default function ProfileScreen() {
               </View>
             </View>
           </Card>
-
-          <Card style={styles.infoCard}>
-            <View style={styles.infoRow}>
-              <View style={[styles.infoIcon, { backgroundColor: colors.background.tertiary }]}>
-                <Building2 size={20} color={colors.purple[500]} />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={[styles.infoLabel, { color: colors.text.secondary }]}>Properties Managed</Text>
-                <Text style={[styles.infoValue, { color: colors.text.primary }]}>
-                  {user?.propertyIds?.length || 0} {(user?.propertyIds?.length || 0) === 1 ? 'Property' : 'Properties'}
-                </Text>
-              </View>
-            </View>
-          </Card>
         </View>
 
         <View style={styles.section}>

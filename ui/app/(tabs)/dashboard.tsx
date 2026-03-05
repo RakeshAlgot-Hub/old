@@ -216,7 +216,7 @@ export default function DashboardScreen() {
 
   const quickActions = [
     { icon: Users, label: 'Add Tenant', route: '/add-tenant' },
-    { icon: IndianRupee, label: 'Add Payment', route: '/add-payment' },
+    { icon: IndianRupee, label: 'Add Payment', route: '/manual-payment' },
     { icon: Building2, label: 'Manage Rooms', route: '/manage-rooms' },
     { icon: Wrench, label: 'Manage Staff', route: '/manage-staff' },
   ];

@@ -912,6 +912,15 @@ export const bedService = {
     ) as ApiResponse<Array<{ room: Room; availableBeds: Bed[] }>>;
   },
 
+  async getAllBedsByProperty(propertyId: string): Promise<ApiResponse<Array<{ room: Room; availableBeds: Bed[] }>>> {
+    return await request<Array<{ room: Room; availableBeds: Bed[] }>>(
+      'GET', 
+      `/beds/all-by-property?property_id=${encodeURIComponent(propertyId)}`, 
+      undefined, 
+      true
+    ) as ApiResponse<Array<{ room: Room; availableBeds: Bed[] }>>;
+  },
+
   async getBeds(roomId?: string, propertyId?: string, status?: string, page: number = 1, pageSize: number = 50): Promise<PaginatedResponse<Bed>> {
     let endpoint = '/beds?';
     const params: string[] = [];

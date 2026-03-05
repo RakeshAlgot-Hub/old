@@ -24,6 +24,23 @@ async def get_available_beds_by_property(request: Request, property_id: str = Qu
         }
     }
 
+@router.get("/all-by-property", response_model=dict)
+async def get_all_beds_by_property(request: Request, property_id: str = Query(..., description="Property ID to fetch all beds for")):
+    """Get all beds (available, occupied, maintenance) for a property, grouped by rooms - used for tenant editing"""
+    property_ids = getattr(request.state, "property_ids", [])
+    
+    if property_id not in property_ids:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    
+    all_beds = await bed_service.get_all_beds_with_rooms(property_id)
+    
+    return {
+        "data": all_beds,
+        "meta": {
+            "total": len(all_beds)
+        }
+    }
+
 @router.get("", response_model=dict)
 async def list_beds(request: Request, room_id: str = Query(None), property_id: str = Query(None), status_filter: str = Query(None), page: int = Query(1), page_size: int = Query(50)):
     beds = []

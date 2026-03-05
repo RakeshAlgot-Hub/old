@@ -15,7 +15,10 @@
       }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://portfolio-2zxo.onrender.com/api/v1"
+      }
     }
   },
   "submit": {

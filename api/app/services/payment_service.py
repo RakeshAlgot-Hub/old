@@ -25,6 +25,10 @@ class PaymentService:
         if payment_dict.get("dueDate") and hasattr(payment_dict["dueDate"], 'isoformat'):
             payment_dict["dueDate"] = payment_dict["dueDate"].isoformat()
         
+        # Auto-set paidDate when status is "paid" and paidDate is not provided
+        if payment_dict.get("status") == "paid" and not payment_dict.get("paidDate"):
+            payment_dict["paidDate"] = now.date().isoformat()
+        
         payment_dict["createdAt"] = now
         payment_dict["updatedAt"] = now
         

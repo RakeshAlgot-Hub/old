@@ -44,6 +44,7 @@ export interface Tenant {
   tenantStatus?: 'active' | 'vacated';
   address?: string;
   joinDate: string;
+  checkoutDate?: string;
   autoGeneratePayments?: boolean;
   billingConfig?: BillingConfig | null;
   archived?: boolean;
@@ -314,6 +315,7 @@ export interface DashboardStats {
   monthlyRevenueFormatted?: string;
   pendingPayments?: number; // Count of pending payments
   duePaymentAmount?: number; // Total due amount in paise
+  duePaymentAmountFormatted?: string;
   paidThisMonth?: number; // Paid amount this month in paise
   // Check-in/Check-out
   checkInsToday?: number;

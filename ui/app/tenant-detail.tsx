@@ -34,7 +34,7 @@ import { Bed as BedIcon } from 'lucide-react-native';
 import { spacing, typography, radius, shadows, addActionTokens } from '@/theme';
 import { useTheme } from '@/context/ThemeContext';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
-import { tenantService, paymentService, roomService } from '@/services/apiClient';
+import { tenantService, paymentService, roomService, bedService } from '@/services/apiClient';
 import type { Tenant, Payment, Room, Bed, BillingFrequency, BillingConfig } from '@/services/apiTypes';
 import Card from '@/components/Card';
 import StatusBadge from '@/components/StatusBadge';
@@ -62,7 +62,6 @@ export default function TenantDetailScreen() {
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [room, setRoom] = useState<Room | null>(null);
-  const [beds, setBeds] = useState<Bed[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -74,12 +73,21 @@ export default function TenantDetailScreen() {
   const [editLoading, setEditLoading] = useState(false);
   const [showEditTenantModal, setShowEditTenantModal] = useState(false);
   const [editTenantName, setEditTenantName] = useState('');
+  const [editTenantDocumentId, setEditTenantDocumentId] = useState('');
   const [editTenantPhone, setEditTenantPhone] = useState('');
   const [editTenantRent, setEditTenantRent] = useState('');
   const [editTenantAddress, setEditTenantAddress] = useState('');
+  const [editTenantJoinDate, setEditTenantJoinDate] = useState('');
   const [editTenantStatus, setEditTenantStatus] = useState<'active' | 'vacated'>('active');
+  const [editTenantRoom, setEditTenantRoom] = useState<Room | null>(null);
+  const [editTenantBed, setEditTenantBed] = useState<Bed | null>(null);
+  const [editRoomsWithBeds, setEditRoomsWithBeds] = useState<Array<{ room: Room; availableBeds: Bed[] }>>([]);
+  const [editAvailableBedsForRoom, setEditAvailableBedsForRoom] = useState<Bed[]>([]);
+  const [showEditRoomPicker, setShowEditRoomPicker] = useState(false);
+  const [showEditBedPicker, setShowEditBedPicker] = useState(false);
   const [showStatusPicker, setShowStatusPicker] = useState(false);
   const [tenantActionLoading, setTenantActionLoading] = useState(false);
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const loadingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTenantFocusRefreshRef = useRef<number>(0);
 
@@ -179,6 +187,33 @@ export default function TenantDetailScreen() {
       }
     };
   }, []);
+
+  // Update available beds when room is selected in edit modal
+  useEffect(() => {
+    if (editTenantRoom) {
+      const roomData = editRoomsWithBeds.find(r => r.room.id === editTenantRoom.id);
+      if (roomData) {
+        let bedsForRoom = roomData.availableBeds;
+        
+        // If this is the tenant's current room and bed, include current bed in the list
+        if (tenant?.roomId === editTenantRoom.id && tenant?.bedId && editTenantBed) {
+          if (!bedsForRoom.find(b => b.id === editTenantBed.id)) {
+            bedsForRoom = [editTenantBed, ...bedsForRoom];
+          }
+        }
+        
+        setEditAvailableBedsForRoom(bedsForRoom);
+        
+        // Clear bed selection if changing to a different room (unless it's available in new room)
+        if (editTenantBed && editTenantBed.roomId !== editTenantRoom.id) {
+          setEditTenantBed(null);
+        }
+      }
+    } else {
+      setEditAvailableBedsForRoom([]);
+      setEditTenantBed(null);
+    }
+  }, [editTenantRoom, editRoomsWithBeds, tenant?.bedId, tenant?.roomId, editTenantBed]);
 
   const handleRetry = () => {
     fetchTenantData();
@@ -326,13 +361,57 @@ export default function TenantDetailScreen() {
     router.push(`/manual-payment?tenantId=${tenantId}`);
   };
 
-  const openEditTenantModal = () => {
+  const openEditTenantModal = async () => {
     if (!tenant) return;
     setEditTenantName(tenant.name || '');
+    setEditTenantDocumentId(tenant.documentId || '');
     setEditTenantPhone(tenant.phone || '');
     setEditTenantRent(tenant.rent || '');
     setEditTenantAddress(tenant.address || '');
+    setEditTenantJoinDate(tenant.joinDate || '');
     setEditTenantStatus(tenant.tenantStatus || 'active');
+    
+    // Set current room if exists
+    if (tenant.roomId && room) {
+      setEditTenantRoom(room);
+    } else {
+      setEditTenantRoom(null);
+    }
+    
+    // Fetch beds to show options
+    // For vacated tenants, fetch ALL beds so they can be reassigned
+    // For active tenants, fetch only available beds
+    if (tenant.propertyId) {
+      try {
+        const isVacated = tenant.tenantStatus === 'vacated';
+        const response = isVacated 
+          ? await bedService.getAllBedsByProperty(tenant.propertyId)
+          : await bedService.getAvailableBedsByProperty(tenant.propertyId);
+        
+        if (response.data) {
+          setEditRoomsWithBeds(response.data);
+          
+          // Set current bed if exists - find it from the fetched data
+          let currentBed: Bed | null = null;
+          if (tenant.bedId && tenant.roomId) {
+            const roomData = response.data.find(r => r.room.id === tenant.roomId);
+            if (roomData) {
+              currentBed = roomData.availableBeds.find(b => b.id === tenant.bedId) || null;
+              if (currentBed) {
+                setEditTenantBed(currentBed);
+              } else {
+                setEditTenantBed(null);
+              }
+              
+              setEditAvailableBedsForRoom(roomData.availableBeds);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch beds for edit modal', err);
+      }
+    }
+    
     setShowEditTenantModal(true);
   };
 
@@ -340,6 +419,7 @@ export default function TenantDetailScreen() {
     if (!tenant) return;
 
     const name = editTenantName.trim();
+    const documentId = editTenantDocumentId.trim();
     const phone = editTenantPhone.trim();
     const rent = editTenantRent.trim();
     const address = editTenantAddress.trim();
@@ -354,19 +434,45 @@ export default function TenantDetailScreen() {
       return;
     }
 
+    // Check if status is active - room and bed are mandatory
+    if (editTenantStatus === 'active') {
+      if (!editTenantRoom || !editTenantBed) {
+        Alert.alert('Validation', 'Room and bed are mandatory for active tenants.');
+        return;
+      }
+    }
+
+    // Check if changing from vacated to active - room and bed are required
+    const isChangingFromVacatedToActive = tenant.tenantStatus === 'vacated' && editTenantStatus === 'active';
+    if (isChangingFromVacatedToActive && (!editTenantRoom || !editTenantBed)) {
+      Alert.alert('Validation', 'Please assign a room and bed when reactivating a tenant.');
+      return;
+    }
+
     try {
       setTenantActionLoading(true);
       const response = await tenantService.updateTenant(tenant.id, {
         name,
+        documentId,
         phone,
         rent,
         address,
+        joinDate: editTenantJoinDate,
+        roomId: editTenantRoom?.id || undefined,
+        bedId: editTenantBed?.id || undefined,
         tenantStatus: editTenantStatus,
       });
       if (response.data) {
         setTenant((prev) => prev ? { ...prev, ...response.data } : prev);
       }
       setShowEditTenantModal(false);
+      
+      // If reactivating from vacated status, show billing setup screen
+      if (isChangingFromVacatedToActive) {
+        setTimeout(() => {
+          openEditBillingModal();
+        }, 500);
+      }
     } catch (err: any) {
       Alert.alert('Error', err?.message || 'Failed to update tenant');
     } finally {
@@ -374,53 +480,25 @@ export default function TenantDetailScreen() {
     }
   };
 
-  const handleQuickStatusToggle = async () => {
+  const handleDeleteTenant = () => {
+    setShowDeleteConfirmModal(true);
+  };
+
+  const confirmDeleteTenant = async () => {
     if (!tenant) return;
 
-    const newStatus: 'active' | 'vacated' = tenant.tenantStatus === 'active' ? 'vacated' : 'active';
-    
     try {
       setTenantActionLoading(true);
-      const response = await tenantService.updateTenant(tenant.id, {
-        tenantStatus: newStatus,
-      });
-      if (response.data) {
-        setTenant((prev) => prev ? { ...prev, ...response.data } : prev);
-      }
+      setShowDeleteConfirmModal(false);
+      await tenantService.deleteTenant(tenant.id);
+      Alert.alert('Success', 'Tenant and payments deleted successfully.', [
+        { text: 'OK', onPress: () => router.back() }
+      ]);
     } catch (err: any) {
-      Alert.alert('Error', err?.message || 'Failed to update tenant status');
+      Alert.alert('Error', err?.message || 'Failed to delete tenant');
     } finally {
       setTenantActionLoading(false);
     }
-  };
-
-  const handleDeleteTenant = () => {
-    if (!tenant) return;
-
-    Alert.alert(
-      'Delete Tenant?',
-      `⚠️ Deleting ${tenant.name} will permanently remove:\n• Tenant profile and all details\n• All payment records and history\n\nThis action cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete Tenant & Payments',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setTenantActionLoading(true);
-              await tenantService.deleteTenant(tenant.id);
-              Alert.alert('Success', `${tenant.name} and all associated payments have been deleted.`, [
-                { text: 'OK', onPress: () => router.back() }
-              ]);
-            } catch (err: any) {
-              Alert.alert('Error', err?.message || 'Failed to delete tenant');
-            } finally {
-              setTenantActionLoading(false);
-            }
-          },
-        },
-      ]
-    );
   };
 
   if (loading) {
@@ -536,9 +614,6 @@ export default function TenantDetailScreen() {
                   <Text style={[styles.tenantName, { color: colors.text.primary }]}>
                     {tenant.name}
                   </Text>
-                  {latestPayment && (
-                    <StatusBadge status={latestPayment.status} />
-                  )}
                 </View>
               </View>
 
@@ -546,176 +621,118 @@ export default function TenantDetailScreen() {
 
               <View style={styles.contactSection}>
                 <View style={styles.contactItem}>
-                  <Text style={[styles.contactText, { color: colors.text.primary }]}>Document ID: {tenant.documentId}</Text>
-                </View>
-                <View style={styles.contactItem}>
-                  <Phone size={16} color={colors.text.secondary} />
                   <Text style={[styles.contactText, { color: colors.text.primary }]}>
-                    {tenant.phone}
+                    Status: <Text style={{ color: tenant.tenantStatus === 'active' ? colors.success[600] : colors.danger[600], fontWeight: typography.fontWeight.semibold as any }}>{tenant.tenantStatus === 'active' ? 'Active' : 'Vacated'}</Text>
                   </Text>
                 </View>
-                {tenant.address && (
-                  <View style={styles.contactItem}>
-                    <MapPin size={16} color={colors.text.secondary} />
-                    <Text style={[styles.contactText, { color: colors.text.primary }]}>
-                      {tenant.address}
-                    </Text>
-                  </View>
-                )}
-                <View style={styles.contactItem}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.contactText, { color: colors.text.primary }]}>
-                      Status: <Text style={{ color: tenant.tenantStatus === 'active' ? colors.success[600] : colors.danger[600], fontWeight: typography.fontWeight.semibold as any }}>{tenant.tenantStatus === 'active' ? 'Active' : 'Vacated'}</Text>
-                    </Text>
-                  </View>
-                  <TouchableOpacity
-                    style={[
-                      styles.statusToggleButton,
-                      {
-                        backgroundColor: tenant.tenantStatus === 'active' ? colors.danger[50] : colors.success[50],
-                        borderColor: tenant.tenantStatus === 'active' ? colors.danger[200] : colors.success[200],
-                      },
-                    ]}
-                    onPress={handleQuickStatusToggle}
-                    disabled={tenantActionLoading || !isOnline}
-                    activeOpacity={0.7}>
-                    <Text
-                      style={[
-                        styles.statusToggleButtonText,
-                        {
-                          color: tenant.tenantStatus === 'active' ? colors.danger[600] : colors.success[600],
-                          fontSize: typography.fontSize.xs,
-                          fontWeight: typography.fontWeight.semibold as any,
-                        },
-                      ]}>
-                      {tenant.tenantStatus === 'active' ? 'Vacate' : 'Activate'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.contactItem}>
-                  <Calendar size={16} color={colors.text.secondary} />
-                  <Text style={[styles.contactText, { color: colors.text.primary }]}>
-                    Joined {formatDateWithOrdinal(tenant.joinDate)}
-                  </Text>
-                </View>
-                {latestPayment && latestPayment.status === 'paid' && (
-                  <View style={styles.contactItem}>
-                    <Calendar size={16} color={colors.primary[500]} />
-                    <Text style={[styles.contactText, { color: colors.primary[600] }]}>
-                      Next Due: {formatDateWithOrdinal(calculateNextDueDate(latestPayment.dueDate ?? ''))}
-                    </Text>
-                  </View>
-                )}
-                {tenant.roomNumber && tenant.bedNumber && (
-                  <View style={styles.contactItem}>
-                    <BedIcon size={16} color={colors.text.secondary} />
-                    <Text style={[styles.contactText, { color: colors.text.primary }]}>Room {tenant.roomNumber} - Bed {tenant.bedNumber}</Text>
-                  </View>
-                )}
               </View>
             </Card>
 
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>
-                  Financial Summary
-                </Text>
-              </View>
-
-              <Card style={styles.summaryCard}>
-                <View style={styles.summaryGrid}>
-                  <View style={styles.summaryItem}>
-                    <Text style={[styles.summaryLabel, { color: colors.text.secondary }]}>
-                      Total Paid
-                    </Text>
-                    <Text style={[styles.summaryValue, { color: colors.success[500] }]}>
-                      ₹{totalPaid.toLocaleString()}
-                    </Text>
-                  </View>
-
-                  <View style={styles.summaryItem}>
-                    <Text style={[styles.summaryLabel, { color: colors.text.secondary }]}>
-                      Monthly Rent
-                    </Text>
-                    <Text style={[styles.summaryValue, { color: colors.text.primary }]}>
-                      {tenant.rent}
-                    </Text>
-                  </View>
-
-                  <View style={styles.summaryItem}>
-                    <Text style={[styles.summaryLabel, { color: colors.text.secondary }]}>
-                      Outstanding
-                    </Text>
-                    <Text style={[styles.summaryValue, { color: outstanding > 0 ? colors.danger[500] : colors.text.primary }]}>
-                      ₹{outstanding.toLocaleString()}
-                    </Text>
-                  </View>
+            {tenant.tenantStatus === 'active' && (
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>
+                    Financial Summary
+                  </Text>
                 </View>
-              </Card>
-            </View>
 
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>
-                  Billing Configuration
-                </Text>
-                <TouchableOpacity
-                  style={[styles.actionButton, { backgroundColor: colors.primary[500], opacity: !isOnline ? 0.5 : 1 }]}
-                  onPress={openEditBillingModal}
-                  activeOpacity={0.7}
-                  disabled={!isOnline}>
-                  <Edit size={16} color={colors.white} />
-                  <Text style={[styles.actionButtonText, { color: colors.white }]}>
-                    Edit
-                  </Text>
-                </TouchableOpacity>
+                <Card style={styles.summaryCard}>
+                  <View style={styles.summaryGrid}>
+                    <View style={styles.summaryItem}>
+                      <Text style={[styles.summaryLabel, { color: colors.text.secondary }]}>
+                        Total Paid
+                      </Text>
+                      <Text style={[styles.summaryValue, { color: colors.success[500] }]}>
+                        ₹{totalPaid.toLocaleString()}
+                      </Text>
+                    </View>
+
+                    <View style={styles.summaryItem}>
+                      <Text style={[styles.summaryLabel, { color: colors.text.secondary }]}>
+                        Monthly Rent
+                      </Text>
+                      <Text style={[styles.summaryValue, { color: colors.text.primary }]}>
+                        {tenant.rent}
+                      </Text>
+                    </View>
+
+                    <View style={styles.summaryItem}>
+                      <Text style={[styles.summaryLabel, { color: colors.text.secondary }]}>
+                        Outstanding
+                      </Text>
+                      <Text style={[styles.summaryValue, { color: outstanding > 0 ? colors.danger[500] : colors.text.primary }]}>
+                        ₹{outstanding.toLocaleString()}
+                      </Text>
+                    </View>
+                  </View>
+                </Card>
               </View>
+            )}
 
-              <Card style={styles.billingCard}>
-                {tenant?.billingConfig ? (
-                  <>
-                    <View style={styles.billingRow}>
-                      <Text style={[styles.billingLabel, { color: colors.text.secondary }]}>
-                        Billing Frequency
-                      </Text>
-                      <Text style={[styles.billingValue, { color: colors.text.primary }]}>
-                        {tenant.billingConfig.billingCycle ? (tenant.billingConfig.billingCycle.charAt(0).toUpperCase() + tenant.billingConfig.billingCycle.slice(1)) : ''}
-                      </Text>
-                    </View>
-
-                    <View style={[styles.divider, { backgroundColor: colors.border.light }]} />
-
-                    <View style={styles.billingRow}>
-                      <Text style={[styles.billingLabel, { color: colors.text.secondary }]}>
-                        Anchor Day
-                      </Text>
-                      <Text style={[styles.billingValue, { color: colors.text.primary }]}>
-                        {getDayWithOrdinal(tenant.billingConfig.anchorDay)} of every month
-                      </Text>
-                    </View>
-
-                    <View style={[styles.divider, { backgroundColor: colors.border.light }]} />
-
-                    <View style={styles.billingRow}>
-                      <Text style={[styles.billingLabel, { color: colors.text.secondary }]}>
-                        Next Billing Date
-                      </Text>
-                      <Text style={[styles.billingValue, { color: colors.primary[600] }]}>
-                        {formatDateWithOrdinal(calculateNextBillingDate(tenant.billingConfig.anchorDay || 1, 'monthly'))}
-                      </Text>
-                    </View>
-
-                    <View style={[styles.divider, { backgroundColor: colors.border.light }]} />
-
-                    {/* Auto-Generate logic removed, not present in BillingConfig type */}
-                  </>
-                ) : (
-                  <Text style={[styles.noBillingText, { color: colors.text.secondary }]}>
-                    No billing configuration set
+            {tenant.tenantStatus === 'active' && (
+              <View style={styles.section}>
+                <View style={styles.sectionHeader}>
+                  <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>
+                    Billing Configuration
                   </Text>
-                )}
-              </Card>
-            </View>
+                  <TouchableOpacity
+                    style={[styles.actionButton, { backgroundColor: colors.primary[500], opacity: !isOnline ? 0.5 : 1 }]}
+                    onPress={openEditBillingModal}
+                    activeOpacity={0.7}
+                    disabled={!isOnline}>
+                    <Edit size={16} color={colors.white} />
+                    <Text style={[styles.actionButtonText, { color: colors.white }]}>
+                      Edit
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Card style={styles.billingCard}>
+                  {tenant?.billingConfig ? (
+                    <>
+                      <View style={styles.billingRow}>
+                        <Text style={[styles.billingLabel, { color: colors.text.secondary }]}>
+                          Billing Frequency
+                        </Text>
+                        <Text style={[styles.billingValue, { color: colors.text.primary }]}>
+                          {tenant.billingConfig.billingCycle ? (tenant.billingConfig.billingCycle.charAt(0).toUpperCase() + tenant.billingConfig.billingCycle.slice(1)) : ''}
+                        </Text>
+                      </View>
+
+                      <View style={[styles.divider, { backgroundColor: colors.border.light }]} />
+
+                      <View style={styles.billingRow}>
+                        <Text style={[styles.billingLabel, { color: colors.text.secondary }]}>
+                          Anchor Day
+                        </Text>
+                        <Text style={[styles.billingValue, { color: colors.text.primary }]}>
+                          {getDayWithOrdinal(tenant.billingConfig.anchorDay)} of every month
+                        </Text>
+                      </View>
+
+                      <View style={[styles.divider, { backgroundColor: colors.border.light }]} />
+
+                      <View style={styles.billingRow}>
+                        <Text style={[styles.billingLabel, { color: colors.text.secondary }]}>
+                          Next Billing Date
+                        </Text>
+                        <Text style={[styles.billingValue, { color: colors.primary[600] }]}>
+                          {formatDateWithOrdinal(calculateNextBillingDate(tenant.billingConfig.anchorDay || 1, 'monthly'))}
+                        </Text>
+                      </View>
+
+                      <View style={[styles.divider, { backgroundColor: colors.border.light }]} />
+
+                      {/* Auto-Generate logic removed, not present in BillingConfig type */}
+                    </>
+                  ) : (
+                    <Text style={[styles.noBillingText, { color: colors.text.secondary }]}>
+                      No billing configuration set
+                    </Text>
+                  )}
+                </Card>
+              </View>
+            )}
 
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
@@ -821,58 +838,6 @@ export default function TenantDetailScreen() {
           <ScrollView contentContainerStyle={styles.modalScrollContent}>
             <View style={styles.formContainer}>
               <View style={styles.inputContainer}>
-                <Text style={[styles.label, { color: colors.text.primary }]}>Name</Text>
-                <TextInput
-                  style={[styles.textInput, { backgroundColor: colors.background.secondary, borderColor: colors.border.medium, color: colors.text.primary }]}
-                  value={editTenantName}
-                  onChangeText={setEditTenantName}
-                  placeholder="Enter tenant name"
-                  placeholderTextColor={colors.text.tertiary}
-                  editable={!tenantActionLoading}
-                />
-              </View>
-
-              <View style={styles.inputContainer}>
-                <Text style={[styles.label, { color: colors.text.primary }]}>Phone</Text>
-                <TextInput
-                  style={[styles.textInput, { backgroundColor: colors.background.secondary, borderColor: colors.border.medium, color: colors.text.primary }]}
-                  value={editTenantPhone}
-                  onChangeText={setEditTenantPhone}
-                  keyboardType="number-pad"
-                  maxLength={10}
-                  placeholder="Enter 10-digit phone"
-                  placeholderTextColor={colors.text.tertiary}
-                  editable={!tenantActionLoading}
-                />
-              </View>
-
-              <View style={styles.inputContainer}>
-                <Text style={[styles.label, { color: colors.text.primary }]}>Rent</Text>
-                <TextInput
-                  style={[styles.textInput, { backgroundColor: colors.background.secondary, borderColor: colors.border.medium, color: colors.text.primary }]}
-                  value={editTenantRent}
-                  onChangeText={setEditTenantRent}
-                  placeholder="Enter rent amount"
-                  placeholderTextColor={colors.text.tertiary}
-                  editable={!tenantActionLoading}
-                />
-              </View>
-
-              <View style={styles.inputContainer}>
-                <Text style={[styles.label, { color: colors.text.primary }]}>Address</Text>
-                <TextInput
-                  style={[styles.textInput, { backgroundColor: colors.background.secondary, borderColor: colors.border.medium, color: colors.text.primary }]}
-                  value={editTenantAddress}
-                  onChangeText={setEditTenantAddress}
-                  placeholder="Enter address"
-                  placeholderTextColor={colors.text.tertiary}
-                  editable={!tenantActionLoading}
-                  multiline
-                  numberOfLines={2}
-                />
-              </View>
-
-              <View style={styles.inputContainer}>
                 <Text style={[styles.label, { color: colors.text.primary }]}>Status</Text>
                 <TouchableOpacity
                   style={[
@@ -897,6 +862,135 @@ export default function TenantDetailScreen() {
                   <ChevronDown size={20} color={colors.text.tertiary} />
                 </TouchableOpacity>
               </View>
+
+              {editTenantStatus === 'active' && (
+                <>
+                  <View style={styles.inputContainer}>
+                    <Text style={[styles.label, { color: colors.text.primary }]}>Name</Text>
+                    <TextInput
+                      style={[styles.textInput, { backgroundColor: colors.background.secondary, borderColor: colors.border.medium, color: colors.text.primary }]}
+                      value={editTenantName}
+                      onChangeText={setEditTenantName}
+                      placeholder="Enter tenant name"
+                      placeholderTextColor={colors.text.tertiary}
+                      editable={!tenantActionLoading}
+                    />
+                  </View>
+
+                  <View style={styles.inputContainer}>
+                    <Text style={[styles.label, { color: colors.text.primary }]}>Document ID</Text>
+                    <TextInput
+                      style={[styles.textInput, { backgroundColor: colors.background.secondary, borderColor: colors.border.medium, color: colors.text.primary }]}
+                      value={editTenantDocumentId}
+                      onChangeText={setEditTenantDocumentId}
+                      placeholder="e.g., Aadhar123456"
+                      placeholderTextColor={colors.text.tertiary}
+                      editable={!tenantActionLoading}
+                    />
+                  </View>
+
+                  <View style={styles.inputContainer}>
+                    <Text style={[styles.label, { color: colors.text.primary }]}>Phone</Text>
+                    <TextInput
+                      style={[styles.textInput, { backgroundColor: colors.background.secondary, borderColor: colors.border.medium, color: colors.text.primary }]}
+                      value={editTenantPhone}
+                      onChangeText={setEditTenantPhone}
+                      keyboardType="number-pad"
+                      maxLength={10}
+                      placeholder="Enter 10-digit phone"
+                      placeholderTextColor={colors.text.tertiary}
+                      editable={!tenantActionLoading}
+                    />
+                  </View>
+
+                  <View style={styles.inputContainer}>
+                    <Text style={[styles.label, { color: colors.text.primary }]}>Rent</Text>
+                    <TextInput
+                      style={[styles.textInput, { backgroundColor: colors.background.secondary, borderColor: colors.border.medium, color: colors.text.primary }]}
+                      value={editTenantRent}
+                      onChangeText={setEditTenantRent}
+                      placeholder="Enter rent amount"
+                      placeholderTextColor={colors.text.tertiary}
+                      editable={!tenantActionLoading}
+                    />
+                  </View>
+
+                  <View style={styles.inputContainer}>
+                    <Text style={[styles.label, { color: colors.text.primary }]}>Address</Text>
+                    <TextInput
+                      style={[styles.textInput, { backgroundColor: colors.background.secondary, borderColor: colors.border.medium, color: colors.text.primary }]}
+                      value={editTenantAddress}
+                      onChangeText={setEditTenantAddress}
+                      placeholder="Enter address"
+                      placeholderTextColor={colors.text.tertiary}
+                      editable={!tenantActionLoading}
+                      multiline
+                      numberOfLines={2}
+                    />
+                  </View>
+
+                  <DatePicker
+                    value={editTenantJoinDate}
+                    onChange={setEditTenantJoinDate}
+                    label="Join Date"
+                    disabled={tenantActionLoading}
+                    required
+                  />
+
+                  <View style={styles.inputContainer}>
+                    <Text style={[styles.label, { color: colors.text.primary }]}>Room</Text>
+                    <TouchableOpacity
+                      style={[
+                        styles.pickerButton,
+                        {
+                          backgroundColor: colors.background.secondary,
+                          borderColor: colors.border.medium,
+                        },
+                      ]}
+                      onPress={() => setShowEditRoomPicker(true)}
+                      activeOpacity={0.7}
+                      disabled={tenantActionLoading || editRoomsWithBeds.length === 0}>
+                      <Text
+                        style={[
+                          styles.pickerButtonText,
+                          {
+                            color: editTenantRoom ? colors.text.primary : colors.text.tertiary,
+                          },
+                        ]}>
+                        {editTenantRoom ? `Room ${editTenantRoom.roomNumber}` : 'Select Room'}
+                      </Text>
+                      <ChevronDown size={20} color={colors.text.tertiary} />
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.inputContainer}>
+                    <Text style={[styles.label, { color: colors.text.primary }]}>Bed</Text>
+                    <TouchableOpacity
+                      style={[
+                        styles.pickerButton,
+                        {
+                          backgroundColor: colors.background.secondary,
+                          borderColor: colors.border.medium,
+                          opacity: !editTenantRoom ? 0.5 : 1,
+                        },
+                      ]}
+                      onPress={() => setShowEditBedPicker(true)}
+                      activeOpacity={0.7}
+                      disabled={tenantActionLoading || !editTenantRoom || editAvailableBedsForRoom.length === 0}>
+                      <Text
+                        style={[
+                          styles.pickerButtonText,
+                          {
+                            color: editTenantBed ? colors.text.primary : colors.text.tertiary,
+                          },
+                        ]}>
+                        {editTenantBed ? `Bed ${editTenantBed.bedNumber}` : 'Select Bed'}
+                      </Text>
+                      <ChevronDown size={20} color={colors.text.tertiary} />
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
 
               <TouchableOpacity
                 style={[
@@ -1114,6 +1208,180 @@ export default function TenantDetailScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        visible={showDeleteConfirmModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !tenantActionLoading && setShowDeleteConfirmModal(false)}>
+        <View style={[styles.deleteModalOverlay, { backgroundColor: 'rgba(0, 0, 0, 0.5)' }]}>
+          <View style={[styles.deleteModalContent, { backgroundColor: colors.background.secondary }]}>
+            {/* Icon */}
+            <View style={[styles.deleteIconContainer, { backgroundColor: colors.danger[50] }]}>
+              <Trash2 size={32} color={colors.danger[500]} />
+            </View>
+
+            {/* Title */}
+            <Text style={[styles.deleteModalTitle, { color: colors.text.primary }]}>Delete Tenant?</Text>
+
+            {/* Message */}
+            <Text style={[styles.deleteModalMessage, { color: colors.text.secondary }]}>
+              This will permanently remove {tenant?.name}, their profile, and all payment records.
+            </Text>
+
+            {/* Warning */}
+            <View style={[styles.deleteWarning, { backgroundColor: colors.danger[50], borderLeftColor: colors.danger[500] }]}>
+              <Text style={[styles.deleteWarningText, { color: colors.danger[700] }]}>This action cannot be undone.</Text>
+            </View>
+
+            {/* Buttons */}
+            <View style={styles.deleteModalButtons}>
+              <TouchableOpacity
+                style={[styles.deleteCancelButton, { backgroundColor: colors.background.tertiary }]}
+                onPress={() => setShowDeleteConfirmModal(false)}
+                disabled={tenantActionLoading}
+                activeOpacity={0.7}>
+                <Text style={[styles.deleteCancelButtonText, { color: colors.text.primary }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.deleteConfirmButton, { backgroundColor: colors.danger[500] }]}
+                onPress={confirmDeleteTenant}
+                disabled={tenantActionLoading}
+                activeOpacity={0.7}>
+                {tenantActionLoading ? (
+                  <ActivityIndicator color={colors.white} size="small" />
+                ) : (
+                  <Text style={styles.deleteConfirmButtonText}>Delete</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Edit Room Picker Modal */}
+      <Modal
+        visible={showEditRoomPicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowEditRoomPicker(false)}>
+        <View style={[styles.pickerOverlay, { backgroundColor: colors.modal.overlay }]}>
+          <View style={[styles.pickerContainer, { backgroundColor: colors.background.secondary }]}>
+            <View style={[styles.pickerHeader, { borderBottomColor: colors.border.light }]}>
+              <Text style={[styles.pickerTitle, { color: colors.text.primary }]}>
+                Select Room
+              </Text>
+            </View>
+
+            <ScrollView style={styles.pickerScrollView}>
+              {editRoomsWithBeds.map((roomData, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.pickerOption,
+                    { borderBottomColor: colors.border.light },
+                  ]}
+                  onPress={() => {
+                    setEditTenantRoom(roomData.room);
+                    setShowEditRoomPicker(false);
+                  }}
+                  activeOpacity={0.7}>
+                  <View style={styles.modalOptionContent}>
+                    <Text
+                      style={[
+                        styles.pickerOptionText,
+                        {
+                          color:
+                            editTenantRoom?.id === roomData.room.id
+                              ? colors.primary[500]
+                              : colors.text.primary,
+                          fontWeight:
+                            editTenantRoom?.id === roomData.room.id
+                              ? typography.fontWeight.semibold
+                              : typography.fontWeight.regular,
+                        },
+                      ]}>
+                      Room {roomData.room.roomNumber}
+                    </Text>
+                    <Text style={[styles.pickerOptionSubtext, { color: colors.text.secondary }]}>
+                      Floor {roomData.room.floor} • {roomData.availableBeds.length} available • ₹{roomData.room.price}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <TouchableOpacity
+              style={[styles.pickerCloseButton, { borderTopColor: colors.border.light }]}
+              onPress={() => setShowEditRoomPicker(false)}
+              activeOpacity={0.7}>
+              <Text style={[styles.pickerCloseButtonText, { color: colors.text.secondary }]}>
+                Cancel
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Edit Bed Picker Modal */}
+      <Modal
+        visible={showEditBedPicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowEditBedPicker(false)}>
+        <View style={[styles.pickerOverlay, { backgroundColor: colors.modal.overlay }]}>
+          <View style={[styles.pickerContainer, { backgroundColor: colors.background.secondary }]}>
+            <View style={[styles.pickerHeader, { borderBottomColor: colors.border.light }]}>
+              <Text style={[styles.pickerTitle, { color: colors.text.primary }]}>
+                Select Bed
+              </Text>
+            </View>
+
+            <ScrollView style={styles.pickerScrollView}>
+              {editAvailableBedsForRoom.map((bed, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.pickerOption,
+                    { borderBottomColor: colors.border.light },
+                  ]}
+                  onPress={() => {
+                    setEditTenantBed(bed);
+                    setShowEditBedPicker(false);
+                  }}
+                  activeOpacity={0.7}>
+                  <Text
+                    style={[
+                      styles.pickerOptionText,
+                      {
+                        color:
+                          editTenantBed?.id === bed.id
+                            ? colors.primary[500]
+                            : colors.text.primary,
+                        fontWeight:
+                          editTenantBed?.id === bed.id
+                            ? typography.fontWeight.semibold
+                            : typography.fontWeight.regular,
+                      },
+                    ]}>
+                    Bed {bed.bedNumber}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <TouchableOpacity
+              style={[styles.pickerCloseButton, { borderTopColor: colors.border.light }]}
+              onPress={() => setShowEditBedPicker(false)}
+              activeOpacity={0.7}>
+              <Text style={[styles.pickerCloseButtonText, { color: colors.text.secondary }]}>
+                Cancel
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1202,15 +1470,7 @@ const styles = StyleSheet.create({
   contactText: {
     fontSize: typography.fontSize.md,
   },
-  statusToggleButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.md,
-    borderWidth: 1,
-  },
-  statusToggleButtonText: {
-    textAlign: 'center',
-  },
+
   section: {
     marginBottom: spacing.lg,
   },
@@ -1528,5 +1788,85 @@ const styles = StyleSheet.create({
   infoNote: {
     fontSize: typography.fontSize.xs,
     marginTop: spacing.xs,
+  },
+  // Delete Confirmation Modal Styles
+  deleteModalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  deleteModalContent: {
+    borderRadius: radius.xl,
+    paddingVertical: spacing.xxl,
+    paddingHorizontal: spacing.xl,
+    alignItems: 'center',
+    maxWidth: 360,
+    ...shadows.lg,
+  },
+  deleteIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  deleteModalTitle: {
+    fontSize: typography.fontSize.xl,
+    fontWeight: typography.fontWeight.bold,
+    marginBottom: spacing.sm,
+  },
+  deleteModalMessage: {
+    fontSize: typography.fontSize.md,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+    lineHeight: 1.5,
+  },
+  deleteWarning: {
+    borderLeftWidth: 4,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    marginBottom: spacing.lg,
+    width: '100%',
+  },
+  deleteWarningText: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semibold,
+  },
+  deleteModalButtons: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    width: '100%',
+  },
+  deleteCancelButton: {
+    flex: 1,
+    paddingVertical: spacing.lg,
+    borderRadius: radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteCancelButtonText: {
+    fontSize: typography.fontSize.md,
+    fontWeight: typography.fontWeight.semibold,
+  },
+  deleteConfirmButton: {
+    flex: 1,
+    paddingVertical: spacing.lg,
+    borderRadius: radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteConfirmButtonText: {
+    color: '#FFFFFF',
+    fontSize: typography.fontSize.md,
+    fontWeight: typography.fontWeight.semibold,
+  },
+  modalOptionContent: {
+    gap: spacing.xs,
+  },
+  pickerOptionSubtext: {
+    fontSize: typography.fontSize.xs,
   },
 });

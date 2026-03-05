@@ -64,6 +64,9 @@ async def create_tenant(request: Request, tenant: TenantCreate):
         
         created = await tenant_service.create_tenant(tenant.model_dump(exclude_unset=True))
         return {"data": created.model_dump()}
+    except ValueError as e:
+        # Handle validation errors (like bed already occupied)
+        raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
         raise
     except Exception as e:
@@ -81,6 +84,9 @@ async def patch_tenant(request: Request, tenant_id: str, tenant: TenantUpdate):
             updated = await tenant_service.update_tenant(tenant_id, tenant.model_dump(exclude_unset=True))
             return {"data": updated.model_dump()} if updated else {"data": {}}
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+    except ValueError as e:
+        # Handle validation errors (like bed already occupied)
+        raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
         raise
     except Exception as e:

@@ -139,6 +139,13 @@ class TenantService:
         if not tenant_data.get("updatedAt"):
             tenant_data["updatedAt"] = now
         
+        # Validate bed is available if provided
+        bed_id = tenant_data.get("bedId")
+        if bed_id:
+            bed = await bed_service.get_bed(bed_id)
+            if bed and bed.status == BedStatus.OCCUPIED.value:
+                raise ValueError(f"Bed is already occupied")
+        
         # Get autoGeneratePayments flag
         auto_generate = tenant_data.get("autoGeneratePayments", True)
         
@@ -191,36 +198,81 @@ class TenantService:
 
     async def update_tenant(self, tenant_id: str, tenant_data: dict):
         tenant_data["updatedAt"] = datetime.now(timezone.utc).isoformat()
-        # Check if bedId is being changed
-        orig_doc = await self.collection.find_one({"_id": ObjectId(tenant_id)})
-        orig_bed_id = orig_doc.get("bedId") if orig_doc else None
-        orig_status = orig_doc.get("tenantStatus") if orig_doc else None
-        new_bed_id = tenant_data.get("bedId")
-        new_status = tenant_data.get("tenantStatus")
         
-        # Handle tenant vacating - free up the bed and set checkout date
+        # Get original tenant data
+        orig_doc = await self.collection.find_one({"_id": ObjectId(tenant_id)})
+        if not orig_doc:
+            return None
+            
+        orig_bed_id = orig_doc.get("bedId")
+        orig_room_id = orig_doc.get("roomId")
+        orig_status = orig_doc.get("tenantStatus", "active")
+        
+        new_bed_id = tenant_data.get("bedId")
+        new_room_id = tenant_data.get("roomId")
+        new_status = tenant_data.get("tenantStatus", orig_status)
+        
+        # Validate new bed is available (if different from current bed)
+        if new_bed_id and new_bed_id != orig_bed_id:
+            bed = await bed_service.get_bed(new_bed_id)
+            if bed and bed.status == BedStatus.OCCUPIED.value and bed.tenantId != tenant_id:
+                raise ValueError(f"Bed {new_bed_id} is already occupied by another tenant")
+        
+        # Handle tenant status change to vacated
         if new_status == "vacated" and orig_status != "vacated":
+            # Free up current bed if assigned
             if orig_bed_id:
-                # Set bed to available and clear tenantId
                 await bed_service.update_bed(orig_bed_id, BedUpdate(status=BedStatus.AVAILABLE.value, tenantId=None))
+            
+            # Clear roomId and bedId
+            tenant_data["roomId"] = None
+            tenant_data["bedId"] = None
+            
             # Set checkout date if not already set
             if not tenant_data.get("checkoutDate"):
                 tenant_data["checkoutDate"] = datetime.now(timezone.utc).isoformat()
+            
             # Clear billingConfig for vacated tenant
             tenant_data["billingConfig"] = None
         
-        # Handle regular bedId changes
-        if orig_bed_id and orig_bed_id != new_bed_id and new_status != "vacated":
-            # Set previous bed to available and clear tenantId
-            await bed_service.update_bed(orig_bed_id, BedUpdate(status=BedStatus.AVAILABLE.value, tenantId=None))
-        if new_bed_id and orig_bed_id != new_bed_id and new_status != "vacated":
-            # Set new bed to occupied with tenantId
+        # Handle tenant reactivation (vacated -> active)
+        elif new_status == "active" and orig_status == "vacated":
+            # Room and bed are mandatory when reactivating a tenant
+            if not new_bed_id or not new_room_id:
+                raise ValueError("Room and bed are mandatory when reactivating a vacated tenant")
+            
+            # Occupy the new bed
             await bed_service.update_bed(new_bed_id, BedUpdate(status=BedStatus.OCCUPIED.value, tenantId=tenant_id))
+            
+            # Clear checkout date when reactivating
+            if "checkoutDate" not in tenant_data:
+                tenant_data["checkoutDate"] = None
         
-        # Ensure billingConfig is present and stored
+        # Handle bed changes for active tenants
+        elif new_status == "active":
+            # Room and bed are mandatory for active tenants
+            if not new_bed_id or not new_room_id:
+                raise ValueError("Room and bed are mandatory for active tenants")
+            
+            bed_changed = orig_bed_id != new_bed_id
+            
+            if bed_changed:
+                # Free up old bed if it existed
+                if orig_bed_id:
+                    await bed_service.update_bed(orig_bed_id, BedUpdate(status=BedStatus.AVAILABLE.value, tenantId=None))
+                
+                # Occupy new bed if it's being assigned
+                if new_bed_id:
+                    await bed_service.update_bed(new_bed_id, BedUpdate(status=BedStatus.OCCUPIED.value, tenantId=tenant_id))
+        
+        # Ensure billingConfig is handled properly
         if "billingConfig" in tenant_data:
             tenant_data["billingConfig"] = tenant_data["billingConfig"] or None
+        
+        # Update the tenant document
         await self.collection.update_one({"_id": ObjectId(tenant_id)}, {"$set": tenant_data})
+        
+        # Fetch and return updated tenant
         doc = await self.collection.find_one({"_id": ObjectId(tenant_id)})
         if doc:
             doc["id"] = str(doc["_id"])

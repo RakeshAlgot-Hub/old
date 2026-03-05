@@ -35,17 +35,13 @@ async def get_dashboard_stats(request: Request, property_id: str):
         "archived": {"$ne": True},
         "tenantStatus": "vacated"
     })
-    tenants_count = active_tenants_count + vacated_tenants_count  # Total count
+    tenants_count = active_tenants_count  # Count only active tenants
     
     # Count beds and occupancy
     total_beds = await beds_col.count_documents({"propertyId": property_id})
     occupied_beds = await beds_col.count_documents({
         "propertyId": property_id,
         "status": "occupied"
-    })
-    available_beds = await beds_col.count_documents({
-        "propertyId": property_id,
-        "status": "available"
     })
     
     occupancy_rate = (occupied_beds / total_beds * 100) if total_beds > 0 else 0
@@ -145,7 +141,7 @@ async def get_dashboard_stats(request: Request, property_id: str):
     # Get monthly revenue (all paid in current month)
     monthly_revenue = paid_this_month
     
-    # Count check-ins/check-outs today
+    # Count check-ins today
     today_start = datetime.combine(today.date(), datetime.min.time()).isoformat()
     today_end = datetime.combine(today.date(), datetime.max.time()).isoformat()
     
@@ -154,19 +150,6 @@ async def get_dashboard_stats(request: Request, property_id: str):
         "joinDate": {
             "$gte": today_start,
             "$lte": today_end
-        }
-    })
-    
-    # Get upcoming check-ins (next 7 days)
-    upcoming_date = today + timedelta(days=7)
-    upcoming_start = today.isoformat()
-    upcoming_end = upcoming_date.isoformat()
-    
-    upcoming_check_ins = await tenants_col.count_documents({
-        "propertyId": property_id,
-        "joinDate": {
-            "$gte": upcoming_start,
-            "$lte": upcoming_end
         }
     })
     
@@ -189,20 +172,13 @@ async def get_dashboard_stats(request: Request, property_id: str):
             "vacatedTenants": vacated_tenants_count,
             "totalBeds": total_beds,
             "occupiedBeds": occupied_beds,
-            "availableBeds": available_beds,
             "occupancyRate": round(occupancy_rate, 2),
             "monthlyRevenue": monthly_revenue,
             "monthlyRevenueFormatted": f"₹{monthly_revenue:,.0f}",
             "pendingPayments": pending_count,
-            "duePaymentAmount": pending_amount,
             "duePaymentAmountFormatted": f"₹{pending_amount:,.0f}",
-            "paidThisMonth": paid_this_month,
-            "paidThisMonthFormatted": f"₹{paid_this_month:,.0f}",
             "checkInsToday": check_ins_today,
-            "upcomingCheckIns": upcoming_check_ins,
             "totalStaff": total_staff,
             "availableStaff": available_staff,
-            "maintenanceAlerts": 0,
-            "urgentAlerts": 0,
         }
     }

@@ -167,6 +167,11 @@ export default function RoomFormScreen() {
     const bedsNum = numberOfBeds ? parseInt(numberOfBeds, 10) : 0;
     const finalFloor = floor === 'Other' ? customFloor.trim() : floor;
 
+    if (!selectedPropertyId) {
+      setError('No property selected. Please select a property first.');
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
