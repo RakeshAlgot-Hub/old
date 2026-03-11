@@ -9,7 +9,7 @@ login_attempts_collection = db["login_attempts"]
 otp_attempts_collection = db["otp_attempts"]
 
 MAX_LOGIN_ATTEMPTS = 5
-MAX_OTP_ATTEMPTS = 20
+MAX_OTP_ATTEMPTS = 5
 LOCKOUT_DURATION_MINUTES = 10
 
 
