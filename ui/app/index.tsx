@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import Constants from 'expo-constants';
 import { Building2, Eye, EyeOff, Chrome } from 'lucide-react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
@@ -40,14 +41,31 @@ export default function LoginScreen() {
 
   const redirectUri = AuthSession.makeRedirectUri({
     scheme: "hostelmanager",
-  });;
+  });
 
-  const [request, response, promptAsync] = Google.useAuthRequest({
-  androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-  clientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-  redirectUri,
-  scopes: ["profile", "email", "openid"],
-});
+  const expoExtra = (Constants.expoConfig ?? (Constants as any).manifest)?.extra ?? {};
+  const {
+    EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID: androidClientId,
+    EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: webClientId,
+    EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: iosClientId,
+    EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID: expoClientId,
+  } = expoExtra;
+
+  const googleAuthConfig = useMemo(() => {
+    const config: any = {
+      redirectUri,
+      scopes: ["profile", "email", "openid"],
+    };
+
+    if (androidClientId) config.androidClientId = androidClientId;
+    if (webClientId) config.clientId = webClientId;
+    if (iosClientId) config.iosClientId = iosClientId;
+    if (expoClientId) config.expoClientId = expoClientId;
+
+    return config;
+  }, [androidClientId, webClientId, iosClientId, expoClientId, redirectUri]);
+
+  const [request, response, promptAsync] = Google.useAuthRequest(googleAuthConfig);
 
   useEffect(() => {
     if (!lockoutTimer || lockoutTimer <= 0) {
