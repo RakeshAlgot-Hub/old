@@ -23,6 +23,7 @@ import { useAuth } from '@/context/AuthContext';
 import { authService } from '@/services/apiClient';
 import { encryptedTokenStorage } from '@/services/encryptedTokenStorage';
 import { deviceIdService } from '@/services/deviceId';
+import { useCallback } from 'react';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -38,6 +39,7 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [isLockedOut, setIsLockedOut] = useState(false);
   const [lockoutTimer, setLockoutTimer] = useState<number | null>(null);
+  const [isProcessingGoogleAuth, setIsProcessingGoogleAuth] = useState(false);
 
   const redirectUri = AuthSession.makeRedirectUri({
     scheme: "hostelmanager",
@@ -87,16 +89,12 @@ export default function LoginScreen() {
     return () => clearInterval(interval);
   }, [lockoutTimer]);
 
-  useEffect(() => {
-    if (response?.type === 'success') {
-      handleGoogleAuthResponse(response);
-    }
-  }, [response]);
-
-  const handleGoogleAuthResponse = async (authResponse: any) => {
+  // Wrap in useCallback to prevent infinite loops
+  const handleGoogleAuthResponse = useCallback(async (authResponse: any) => {
     const { accessToken, idToken } = authResponse.authentication ?? {};
     if (!accessToken || !idToken) {
       setError('Failed to authenticate with Google. Please try again.');
+      setIsProcessingGoogleAuth(false);
       return;
     }
 
@@ -107,7 +105,6 @@ export default function LoginScreen() {
       const response = await authService.googleSignIn({ idToken });
 
       if (response?.data?.tokens) {
-        // Store tokens with device ID binding
         const deviceId = await deviceIdService.getOrCreateDeviceId();
         await Promise.all([
           encryptedTokenStorage.setAccessToken(response.data.tokens.accessToken),
@@ -126,12 +123,22 @@ export default function LoginScreen() {
       setError(errorMessage);
     } finally {
       setGoogleLoading(false);
+      setIsProcessingGoogleAuth(false);
     }
-  };
+  }, []);
+
+  // Prevent duplicate processing
+  useEffect(() => {
+    if (response?.type === 'success' && !isProcessingGoogleAuth) {
+      setIsProcessingGoogleAuth(true);
+      handleGoogleAuthResponse(response);
+    }
+  }, [response, isProcessingGoogleAuth, handleGoogleAuthResponse]);
 
   const handleGoogleSignIn = async () => {
     try {
       setError(null);
+      setGoogleLoading(true);
       const result = await promptAsync();
       if (result?.type !== 'success') {
         setError('Google sign-in was cancelled.');
@@ -139,6 +146,8 @@ export default function LoginScreen() {
     } catch (err: any) {
       const errorMessage = err?.message || 'Google sign-in failed. Please try again.';
       setError(errorMessage);
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -162,7 +171,7 @@ export default function LoginScreen() {
           encryptedTokenStorage.setTokenExpiry(response.data.tokens.expiresAt),
           encryptedTokenStorage.setDeviceIdForTokens(deviceId),
         ]);
-
+        
         login(response.data.user);
         return;
       }
@@ -265,43 +274,34 @@ export default function LoginScreen() {
                 </Text>
               </TouchableOpacity>
             </View>
-
-            <TouchableOpacity
-              style={[styles.actionButton, { backgroundColor: colors.primary[500], opacity: loading || isLockedOut ? 0.6 : 1 }]}
-              onPress={handleLogin}
-              activeOpacity={0.8}
-              disabled={loading || isLockedOut || googleLoading}>
-              {loading ? (
-                <ActivityIndicator color={colors.white} size="small" />
-              ) : (
-                <Text style={[styles.actionButtonText, { color: colors.white }]}>
-                  {isLockedOut ? 'Account Locked' : 'Login'}
+          
+          <TouchableOpacity
+            style={[
+              styles.googleButton, 
+              { 
+                backgroundColor: colors.background.secondary, 
+                borderColor: colors.border.medium,
+                opacity: !request ? 0.5 : 1
+              }
+            ]}
+            onPress={handleGoogleSignIn}
+            activeOpacity={0.8}
+            disabled={loading || isLockedOut || googleLoading || !request}>
+            {!request ? (
+              <Text style={[styles.googleButtonText, { color: colors.text.tertiary }]}>
+                Initializing...
+              </Text>
+            ) : googleLoading ? (
+              <ActivityIndicator color={colors.primary[500]} size="small" />
+            ) : (
+              <>
+                <Chrome size={20} color={colors.primary[500]} />
+                <Text style={[styles.googleButtonText, { color: colors.text.primary }]}>
+                  Continue with Google
                 </Text>
-              )}
-            </TouchableOpacity>
-
-            <View style={styles.dividerContainer}>
-              <View style={[styles.divider, { backgroundColor: colors.border.medium }]} />
-              <Text style={[styles.dividerText, { color: colors.text.secondary, backgroundColor: colors.background.primary }]}>Or continue with</Text>
-              <View style={[styles.divider, { backgroundColor: colors.border.medium }]} />
-            </View>
-
-            <TouchableOpacity
-              style={[styles.googleButton, { backgroundColor: colors.background.secondary, borderColor: colors.border.medium }]}
-              onPress={handleGoogleSignIn}
-              activeOpacity={0.8}
-              disabled={loading || isLockedOut || googleLoading || !request}>
-              {googleLoading ? (
-                <ActivityIndicator color={colors.primary[500]} size="small" />
-              ) : (
-                <>
-                  <Chrome size={20} color={colors.primary[500]} />
-                  <Text style={[styles.googleButtonText, { color: colors.text.primary }]}>
-                    Continue with Google
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
+              </>
+            )}
+          </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.registerLink}
