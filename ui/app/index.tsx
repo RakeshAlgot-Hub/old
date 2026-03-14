@@ -16,7 +16,7 @@ import { Building2, Eye, EyeOff, Chrome } from 'lucide-react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import { spacing, typography, radius, shadows } from '@/theme';
-
+import * as AuthSession from "expo-auth-session";
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { authService } from '@/services/apiClient';
@@ -38,15 +38,16 @@ export default function LoginScreen() {
   const [isLockedOut, setIsLockedOut] = useState(false);
   const [lockoutTimer, setLockoutTimer] = useState<number | null>(null);
 
+  const redirectUri = AuthSession.makeRedirectUri({
+    scheme: "hostelmanager",
+  });;
+
   const [request, response, promptAsync] = Google.useAuthRequest({
-    // Web client ID is required when running in Expo Go (development)
-    clientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-    // Native client IDs are used in production standalone builds
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-    // openid scope is required to receive idToken from Google
-    scopes: ['profile', 'email', 'openid'],
-  });
+  androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+  clientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+  redirectUri,
+  scopes: ["profile", "email", "openid"],
+});
 
   useEffect(() => {
     if (!lockoutTimer || lockoutTimer <= 0) {
